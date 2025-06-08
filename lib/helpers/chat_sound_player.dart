@@ -1,22 +1,29 @@
 import 'package:audioplayers/audioplayers.dart';
 
 class ChatSoundPlayer {
-  static final AudioPlayer _sendPlayer = AudioPlayer();
-  static final AudioPlayer _receivePlayer = AudioPlayer();
-
   static Future<void> playSendSound() async {
+    final player = AudioPlayer();
     try {
-      await _sendPlayer.play(AssetSource('sounds/send.wav'));
+      await player.play(AssetSource('sounds/send.wav'));
+      player.onPlayerComplete.listen((event) {
+        player.dispose();
+      });
     } catch (e) {
       print('Send sound error: $e');
+      player.dispose();
     }
   }
 
   static Future<void> playReceiveSound() async {
+    final player = AudioPlayer();
     try {
-      await _receivePlayer.play(AssetSource('sounds/recive.mp3'));
+      await player.play(AssetSource('sounds/recive.mp3'));
+      player.onPlayerComplete.listen((event) {
+        player.dispose();
+      });
     } catch (e) {
       print('Receive sound error: $e');
+      player.dispose();
     }
   }
 }
