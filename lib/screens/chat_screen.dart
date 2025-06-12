@@ -14,7 +14,6 @@ import '../helpers/notification_helper.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
 
-
 class ChatScreen extends StatefulWidget {
   final String chatId;
   final bool isAdmin;
@@ -41,7 +40,6 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _debounce;
 
   bool _lockEnabled = false;
-
 
   @override
   void initState() {
@@ -143,7 +141,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _onMessagesSnapshotUpdate() {
-    if (mounted) setState(() {});
+    // if (mounted) setState(() {});
   }
 
   @override
@@ -337,8 +335,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 builder: (context, snapshot) {
                   if (snapshot.hasError)
                     return const Center(child: Text('Error loading messages.'));
-                  if (snapshot.connectionState == ConnectionState.waiting)
+                  if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
+                  }
                   final messages = snapshot.data?.docs ?? [];
                   if (messages.isNotEmpty) {
                     _handleMessageSeen(snapshot.data!);
@@ -350,28 +349,31 @@ class _ChatScreenState extends State<ChatScreen> {
                               (data['timestamp'] as Timestamp?)?.toDate();
                           return senderId != _currentUserId && ts != null;
                         }).toList();
-                    if (incoming.isNotEmpty) {
-                      incoming.sort((a, b) {
-                        final aTs =
-                            (a.data() as Map<String, dynamic>)['timestamp']
-                                as Timestamp;
-                        final bTs =
-                            (b.data() as Map<String, dynamic>)['timestamp']
-                                as Timestamp;
-                        return aTs.compareTo(bTs);
-                      });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted || incoming.isEmpty) return;
+
                       final newestTs =
                           (incoming.last.data()
                                   as Map<String, dynamic>)['timestamp']
                               ?.toDate();
-                      if (_lastNotifiedTimestamp == null)
+                      if (_lastNotifiedTimestamp == null) {
                         _lastNotifiedTimestamp = newestTs;
-                      else if (newestTs != null &&
+                      } else if (newestTs != null &&
                           newestTs.isAfter(_lastNotifiedTimestamp!)) {
                         ChatSoundPlayer.playReceiveSound();
                         _lastNotifiedTimestamp = newestTs;
                       }
-                    }
+
+                      if (_scrollController.hasClients &&
+                          _shouldScrollToBottom) {
+                        _scrollController.animateTo(
+                          _scrollController.position.minScrollExtent,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                        _shouldScrollToBottom = false;
+                      }
+                    });
                   }
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (_scrollController.hasClients && _shouldScrollToBottom) {
@@ -401,14 +403,20 @@ class _ChatScreenState extends State<ChatScreen> {
                       return GestureDetector(
                         onTap: () {
                           final pos = _scrollController.position.pixels;
-                          setState(
-                            () =>
-                                _selectedMessageId =
-                                    isSelected ? null : messageId,
-                          );
+                          if (mounted && _selectedMessageId != messageId) {
+                            setState(() {
+                              _selectedMessageId = messageId;
+                            });
+                          } else if (mounted) {
+                            setState(() {
+                              _selectedMessageId = null;
+                            });
+                          }
+
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_scrollController.hasClients)
+                            if (_scrollController.hasClients) {
                               _scrollController.jumpTo(pos);
+                            }
                           });
                         },
                         child: Container(
