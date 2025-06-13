@@ -6,20 +6,21 @@ import 'welcome_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/missed_message_service.dart';
 import '../shared/active_chat_tracker.dart';
 import '../helpers/chat_sound_player.dart';
 import '../helpers/notification_helper.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
+import '../widgets/chat/message_bubble.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
   final bool isAdmin;
-  static const routeName = '/chat'; // If you defined named routes
+  static const routeName = '/chat';
 
-  const ChatScreen({Key? key, required this.chatId, required this.isAdmin})
-    : super(key: key);
+  const ChatScreen({super.key, required this.chatId, required this.isAdmin});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -30,20 +31,20 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   DateTime? _lastNotifiedTimestamp;
-
+  String? _replyToText;
+  String? _replyToSender;
+  String? _replyToSenderId;
   StreamSubscription? _reconnectSub;
   StreamSubscription? _messageListener;
   String? _currentUserId;
   String? _selectedMessageId;
   bool _shouldScrollToBottom = true;
   Timer? _debounce;
-
   bool _lockEnabled = false;
 
   @override
   void initState() {
     super.initState();
-
     _loadLockStatus();
     _markDeliveredMessages();
     ActiveChatTracker.instance.setActiveChat(widget.chatId);
@@ -64,6 +65,8 @@ class _ChatScreenState extends State<ChatScreen> {
         .collection('messages')
         .snapshots()
         .listen((_) => _markDeliveredMessages());
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {});
   }
 
   Future<void> _loadLockStatus() async {
@@ -76,37 +79,23 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _toggleLock(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final newValue = !_lockEnabled;
-
     await prefs.setBool('lock_enabled', newValue);
-
-    setState(() {
-      _lockEnabled = newValue;
-    });
-
-    // Show snackbar after popup menu closes
-    Future.delayed(Duration(milliseconds: 200), () {
+    setState(() => _lockEnabled = newValue);
+    Future.delayed(const Duration(milliseconds: 200), () {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(newValue ? 'Lock Enabled' : 'Lock Disabled')),
       );
     });
-
-    if (newValue) {
-      _authenticateIfLocked();
-    }
+    if (newValue) _authenticateIfLocked();
   }
 
   Future<bool> _authenticateIfLocked() async {
     if (!_lockEnabled) return true;
-
     final LocalAuthentication auth = LocalAuthentication();
     try {
       final isAvailable =
           await auth.canCheckBiometrics || await auth.isDeviceSupported();
-      if (!isAvailable) {
-        debugPrint("Biometric/Device auth not available.");
-        return true; // Allow access if no biometric available?
-      }
-
+      if (!isAvailable) return true;
       final didAuthenticate = await auth.authenticate(
         localizedReason: 'Please authenticate to access the chat',
         options: const AuthenticationOptions(
@@ -114,30 +103,24 @@ class _ChatScreenState extends State<ChatScreen> {
           stickyAuth: true,
         ),
       );
-
-      if (!didAuthenticate) {
-        // Authentication failed: navigate out
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-          );
-        }
+      if (!didAuthenticate && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+        );
         return false;
       }
-      return true;
+      return didAuthenticate;
     } on PlatformException catch (e) {
       debugPrint('Authentication failed: $e');
       return false;
     } catch (e) {
-      debugPrint('Unexpected error during auth: $e');
+      debugPrint('Unexpected error: $e');
       return false;
     }
   }
 
-  void _onMessagesSnapshotUpdate() {
-    // if (mounted) setState(() {});
-  }
+  void _onMessagesSnapshotUpdate() {}
 
   @override
   void dispose() {
@@ -162,8 +145,9 @@ class _ChatScreenState extends State<ChatScreen> {
             .get();
     if (query.docs.isEmpty) return;
     final batch = FirebaseFirestore.instance.batch();
-    for (var doc in query.docs)
+    for (var doc in query.docs) {
       batch.update(doc.reference, {'delivered': true});
+    }
     await batch.commit();
   }
 
@@ -172,19 +156,19 @@ class _ChatScreenState extends State<ChatScreen> {
       final data = doc.data() as Map<String, dynamic>;
       return data['receiverId'] == _currentUserId && data['seen'] != true;
     });
-    for (var doc in unseen) await doc.reference.update({'seen': true});
+    for (var doc in unseen) {
+      await doc.reference.update({'seen': true});
+    }
   }
 
   void _sendMessage() async {
     final user = _auth.currentUser;
     if (user == null || _messageController.text.trim().isEmpty) return;
     setState(() => _shouldScrollToBottom = true);
-
     final text = _messageController.text.trim();
     _messageController.clear();
 
     final parts = widget.chatId.split('_');
-    if (parts.length != 2) return;
     final senderId = user.uid;
     final receiverId = parts.firstWhere(
       (id) => id != senderId,
@@ -192,21 +176,37 @@ class _ChatScreenState extends State<ChatScreen> {
     );
     if (receiverId.isEmpty) return;
 
+    final messageData = {
+      'text': text,
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'timestamp': FieldValue.serverTimestamp(),
+      'delivered': false,
+      'seen': false,
+      'deleted': false,
+      'notified': false,
+    };
+
+    // Attach reply if exists
+    if (_replyToText != null && _replyToSenderId != null) {
+      messageData['replyTo'] = {
+        'text': _replyToText,
+        'senderId': _replyToSenderId,
+      };
+    }
+
     final ref = await FirebaseFirestore.instance
         .collection('chats')
         .doc(widget.chatId)
         .collection('messages')
-        .add({
-          'text': text,
-          'senderId': senderId,
-          'receiverId': receiverId,
-          'timestamp': FieldValue.serverTimestamp(),
-          'delivered': false,
-          'seen': false,
-          'deleted': false,
-          'notified': false,
-        });
+        .add(messageData);
+
     await ChatSoundPlayer.playSendSound();
+
+    setState(() {
+      _replyToText = null;
+      _replyToSenderId = null;
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients && _shouldScrollToBottom) {
@@ -275,16 +275,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Widget _buildStatusIcon(Map<String, dynamic> data) {
-    if (data['senderId'] != _currentUserId) return const SizedBox.shrink();
-    final delivered = data['delivered'] ?? false;
-    final seen = data['seen'] ?? false;
-    if (seen) return const Icon(Icons.done_all, size: 16, color: Colors.blue);
-    if (delivered)
-      return const Icon(Icons.done_all, size: 16, color: Colors.grey);
-    return const Icon(Icons.done, size: 16, color: Colors.grey);
-  }
-
   @override
   Widget build(BuildContext context) {
     final messagesRef = FirebaseFirestore.instance
@@ -321,7 +311,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-
         body: Column(
           children: [
             Expanded(
@@ -330,12 +319,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 builder: (context, snapshot) {
                   if (snapshot.hasError)
                     return const Center(child: Text('Error loading messages.'));
-                  if (!snapshot.hasData) {
+                  if (!snapshot.hasData)
                     return const Center(child: CircularProgressIndicator());
-                  }
+
                   final messages = snapshot.data?.docs ?? [];
+                  if (messages.isNotEmpty) _handleMessageSeen(snapshot.data!);
+
                   if (messages.isNotEmpty) {
-                    _handleMessageSeen(snapshot.data!);
                     final incoming =
                         messages.where((doc) {
                           final data = doc.data() as Map<String, dynamic>;
@@ -344,32 +334,24 @@ class _ChatScreenState extends State<ChatScreen> {
                               (data['timestamp'] as Timestamp?)?.toDate();
                           return senderId != _currentUserId && ts != null;
                         }).toList();
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted || incoming.isEmpty) return;
 
+                    if (incoming.isNotEmpty) {
                       final newestTs =
                           (incoming.last.data()
                                   as Map<String, dynamic>)['timestamp']
                               ?.toDate();
-                      if (_lastNotifiedTimestamp == null) {
-                        _lastNotifiedTimestamp = newestTs;
-                      } else if (newestTs != null &&
-                          newestTs.isAfter(_lastNotifiedTimestamp!)) {
+                      if (_lastNotifiedTimestamp == null ||
+                          (newestTs != null &&
+                              newestTs.isAfter(_lastNotifiedTimestamp!))) {
+                        print(
+                          '🔔 New message received. Playing receive sound...',
+                        );
                         ChatSoundPlayer.playReceiveSound();
                         _lastNotifiedTimestamp = newestTs;
                       }
-
-                      if (_scrollController.hasClients &&
-                          _shouldScrollToBottom) {
-                        _scrollController.animateTo(
-                          _scrollController.position.minScrollExtent,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOut,
-                        );
-                        _shouldScrollToBottom = false;
-                      }
-                    });
+                    }
                   }
+
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (_scrollController.hasClients && _shouldScrollToBottom) {
                       _scrollController.animateTo(
@@ -377,9 +359,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOut,
                       );
+                      _shouldScrollToBottom = false;
                     }
-                    _shouldScrollToBottom = false;
                   });
+
                   return ListView.builder(
                     reverse: true,
                     controller: _scrollController,
@@ -390,106 +373,64 @@ class _ChatScreenState extends State<ChatScreen> {
                       final messageId = doc.id;
                       if (data['deleted'] == true)
                         return const SizedBox.shrink();
-                      final text = data['text'] ?? '';
-                      final senderId = data['senderId'] ?? '';
-                      final ts = (data['timestamp'] as Timestamp?)?.toDate();
-                      final isMe = senderId == _currentUserId;
+                      final isMe = data['senderId'] == _currentUserId;
                       final isSelected = messageId == _selectedMessageId;
+                      final ts = (data['timestamp'] as Timestamp?)?.toDate();
+
+                      final reply = data['replyTo'] as Map<String, dynamic>?;
+                      final replyToText = reply?['text'] as String?;
+                      final replyToSenderId = reply?['senderId'] as String?;
+                      final isReplyFromMe = replyToSenderId == _currentUserId;
+
                       return GestureDetector(
                         onTap: () {
                           final pos = _scrollController.position.pixels;
-                          if (mounted && _selectedMessageId != messageId) {
-                            setState(() {
-                              _selectedMessageId = messageId;
-                            });
-                          } else if (mounted) {
-                            setState(() {
-                              _selectedMessageId = null;
-                            });
-                          }
-
+                          setState(() {
+                            _selectedMessageId =
+                                _selectedMessageId != messageId
+                                    ? messageId
+                                    : null;
+                          });
                           WidgetsBinding.instance.addPostFrameCallback((_) {
                             if (_scrollController.hasClients) {
                               _scrollController.jumpTo(pos);
                             }
                           });
                         },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          child: Align(
-                            alignment:
-                                isMe
-                                    ? Alignment.centerRight
-                                    : Alignment.centerLeft,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                if (!isMe && isSelected && ts != null) ...[
-                                  Text(
-                                    '${ts.hour}:${ts.minute.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          isMe
-                                              ? Colors.blue[100]
-                                              : Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            text,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                        ),
-                                        if (isMe) ...[
-                                          const SizedBox(width: 8),
-                                          _buildStatusIcon(data),
-                                        ],
-                                        if (isMe &&
-                                            isSelected &&
-                                            ts != null) ...[
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '${ts.hour}:${ts.minute.toString().padLeft(2, '0')}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                if (isMe && isSelected)
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () => _deleteMessage(messageId),
-                                  ),
-                              ],
-                            ),
-                          ),
+                        onHorizontalDragEnd: (details) {
+                          // Swipe right to reply
+                          if (details.primaryVelocity != null &&
+                              details.primaryVelocity! > 0 &&
+                              !isMe) {
+                            setState(() {
+                              _replyToText = data['text'];
+                              _replyToSenderId = data['senderId'];
+                            });
+                          }
+                        },
+                        child: MessageBubble(
+                          text: data['text'] ?? '',
+                          isMe: isMe,
+                          timestamp: ts,
+                          isSelected: isSelected,
+                          onDelete: () => _deleteMessage(messageId),
+                          onTap: () {
+                            final pos = _scrollController.position.pixels;
+                            setState(() {
+                              _selectedMessageId =
+                                  _selectedMessageId != messageId
+                                      ? messageId
+                                      : null;
+                            });
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (_scrollController.hasClients) {
+                                _scrollController.jumpTo(pos);
+                              }
+                            });
+                          },
+                          statusIcon: _buildStatusIcon(data),
+                          replyToText: replyToText,
+                          isReplyFromMe: isReplyFromMe,
                         ),
                       );
                     },
@@ -498,6 +439,45 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             const Divider(height: 1),
+
+            if (_replyToText != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  border: const Border(
+                    left: BorderSide(color: Colors.blue, width: 4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Replying to: $_replyToText',
+                        style: const TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.black87,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        setState(() {
+                          _replyToText = null;
+                          _replyToSenderId = null;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
@@ -523,5 +503,16 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildStatusIcon(Map<String, dynamic> data) {
+    if (data['senderId'] != _currentUserId) return const SizedBox.shrink();
+    final delivered = data['delivered'] ?? false;
+    final seen = data['seen'] ?? false;
+    if (seen) return const Icon(Icons.done_all, size: 16, color: Colors.blue);
+    if (delivered) {
+      return const Icon(Icons.done_all, size: 16, color: Colors.grey);
+    }
+    return const Icon(Icons.done, size: 16, color: Colors.grey);
   }
 }
