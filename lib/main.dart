@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../helpers/notification_helper.dart';
 import 'state/navigation_state.dart';
 import 'state/lock_state.dart' as custom;
 
@@ -10,10 +10,23 @@ import 'screens/root_decider.dart';
 import 'screens/user_list_screen.dart';
 import 'screens/responses_screen.dart';
 import 'widgets/auth_gate.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await FirebaseMessaging.instance.requestPermission();
+  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+  // ✅ FCM background handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // ✅ Init notifications
+  await NotificationHelper.initializeFCM();
+  NotificationHelper.setUpForegroundListener();
 
   final prefs = await SharedPreferences.getInstance();
   final lockEnabled = prefs.getBool('lock_enabled') ?? false;
@@ -22,7 +35,8 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-            create: (_) => custom.LockState(lockEnabled: lockEnabled)),
+          create: (_) => custom.LockState(lockEnabled: lockEnabled),
+        ),
         ChangeNotifierProvider(create: (_) => NavigationState()),
       ],
       child: const MyApp(),

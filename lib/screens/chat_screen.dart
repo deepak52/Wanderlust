@@ -6,7 +6,6 @@ import 'welcome_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/missed_message_service.dart';
 import '../shared/active_chat_tracker.dart';
 import '../helpers/chat_sound_player.dart';
@@ -65,10 +64,6 @@ class _ChatScreenState extends State<ChatScreen> {
         .collection('messages')
         .snapshots()
         .listen((_) => _markDeliveredMessages());
-
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      // handle foreground messages
-    });
   }
 
   Future<void> _loadLockStatus() async {

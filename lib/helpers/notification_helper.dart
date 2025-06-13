@@ -54,6 +54,14 @@ class NotificationHelper {
   static Future<void> initializeFCM() async {
     bool granted = await checkPermissionStatus();
 
+    await FirebaseMessaging.instance.requestPermission();
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     _initializeLocalNotifications();
@@ -68,22 +76,6 @@ class NotificationHelper {
         print('🔁 Token refreshed and updated in Firestore');
       }
     });
-
-    if (!granted) {
-      NotificationSettings settings = await _firebaseMessaging
-          .requestPermission(alert: true, badge: true, sound: true);
-
-      if (settings.authorizationStatus != AuthorizationStatus.authorized) {
-        print('❌ User declined or has not accepted permission');
-        return;
-      }
-      print('✅ User granted permission');
-    } else {
-      print('✅ Permission already granted');
-    }
-
-    String? token = await _firebaseMessaging.getToken();
-    print('📱 FCM Token: $token');
   }
 
   static Future<bool> checkPermissionStatus() async {
@@ -125,7 +117,7 @@ class NotificationHelper {
         return;
       }
 
-      _showLocalNotification(title, body, imageUrl: imageUrl);
+      showLocalNotification(title, body, imageUrl: imageUrl);
     });
   }
 
@@ -155,18 +147,20 @@ class NotificationHelper {
     }
   }
 
+  static final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
   static void _initializeLocalNotifications() {
-    const AndroidInitializationSettings androidSettings =
+    const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-    );
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
 
-    _flutterLocalNotificationsPlugin.initialize(initSettings);
+    _localNotificationsPlugin.initialize(initializationSettings);
   }
 
-  static Future<void> _showLocalNotification(
+  static Future<void> showLocalNotification(
     String? title,
     String? body, {
     String? imageUrl,
