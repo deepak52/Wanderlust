@@ -8,11 +8,14 @@ class MessageBubble extends StatelessWidget {
   final bool isSelected;
   final Widget? statusIcon;
   final VoidCallback? onDelete;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
-  // ✅ Add these two:
+  // ✅ New
+  final VoidCallback? onEdit;
+
   final String? replyToText;
   final bool isReplyFromMe;
+  final bool deleted;
 
   const MessageBubble({
     super.key,
@@ -22,13 +25,18 @@ class MessageBubble extends StatelessWidget {
     this.isSelected = false,
     this.statusIcon,
     this.onDelete,
-    required this.onTap,
+    this.onTap,
+    this.onEdit,
     this.replyToText,
     this.isReplyFromMe = false,
+    required this.deleted,
   });
 
   @override
   Widget build(BuildContext context) {
+
+    print('Rendering bubble: deleted=$deleted, text="$text"');
+
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -39,7 +47,7 @@ class MessageBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (replyToText != null)
+          if (replyToText != null && !deleted)
             Container(
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -66,9 +74,21 @@ class MessageBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Flexible(child: Text(text, style: const TextStyle(fontSize: 16))),
+              Flexible(
+                child:
+                    deleted
+                        ? Text(
+                          'This message was deleted',
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: Colors.red.shade400,
+                            fontSize: 14,
+                          ),
+                        )
+                        : Text(text, style: const TextStyle(fontSize: 16)),
+              ),
               const SizedBox(width: 6),
-              if (timestamp != null || statusIcon != null)
+              if (!deleted && (timestamp != null || statusIcon != null))
                 Row(
                   children: [
                     if (timestamp != null)
@@ -97,21 +117,7 @@ class MessageBubble extends StatelessWidget {
         mainAxisAlignment:
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isSelected && !isMe && onDelete != null)
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-              onPressed: onDelete,
-              padding: const EdgeInsets.only(top: 12),
-            ),
-          bubble,
-          if (isSelected && isMe && onDelete != null)
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-              onPressed: onDelete,
-              padding: const EdgeInsets.only(top: 12),
-            ),
-        ],
+        children: [bubble],
       ),
     );
   }

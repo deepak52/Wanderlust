@@ -3,8 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'welcome_screen.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/missed_message_service.dart';
@@ -32,7 +30,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   DateTime? _lastNotifiedTimestamp;
   String? _replyToText;
-  String? _replyToSender;
   String? _replyToSenderId;
   StreamSubscription? _reconnectSub;
   StreamSubscription? _messageListener;
@@ -41,6 +38,29 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _shouldScrollToBottom = true;
   Timer? _debounce;
   bool _lockEnabled = false;
+  String? _editingMessageId;
+  String? _originalEditingText;
+  List<DocumentSnapshot> _messages = [];
+
+  // Helper to get selected message document from the message list
+  DocumentSnapshot? get _selectedMessageDoc {
+    try {
+      return _messages.firstWhere((doc) => doc.id == _selectedMessageId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Helper to check if the selected message was sent by current user
+  bool get _isSelectedMessageMine {
+    final doc = _selectedMessageDoc;
+    if (doc == null) return false;
+
+    final data = doc.data() as Map<String, dynamic>?;
+    if (data == null) return false;
+
+    return data['senderId'] == _currentUserId;
+  }
 
   @override
   void initState() {
@@ -164,18 +184,41 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage() async {
     final user = _auth.currentUser;
     if (user == null || _messageController.text.trim().isEmpty) return;
-    setState(() => _shouldScrollToBottom = true);
+
     final text = _messageController.text.trim();
     _messageController.clear();
+    setState(() => _shouldScrollToBottom = true);
 
-    final parts = widget.chatId.split('_');
     final senderId = user.uid;
+    final parts = widget.chatId.split('_');
     final receiverId = parts.firstWhere(
       (id) => id != senderId,
       orElse: () => '',
     );
     if (receiverId.isEmpty) return;
 
+    // ✅ If editing an existing message
+    if (_editingMessageId != null) {
+      final docRef = FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .collection('messages')
+          .doc(_editingMessageId);
+
+      await docRef.update({
+        'text': text,
+        'edited': true,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      setState(() {
+        _editingMessageId = null;
+      });
+
+      return;
+    }
+
+    // ✅ Else, send a new message
     final messageData = {
       'text': text,
       'senderId': senderId,
@@ -187,7 +230,6 @@ class _ChatScreenState extends State<ChatScreen> {
       'notified': false,
     };
 
-    // Attach reply if exists
     if (_replyToText != null && _replyToSenderId != null) {
       messageData['replyTo'] = {
         'text': _replyToText,
@@ -195,7 +237,7 @@ class _ChatScreenState extends State<ChatScreen> {
       };
     }
 
-    final ref = await FirebaseFirestore.instance
+    await FirebaseFirestore.instance
         .collection('chats')
         .doc(widget.chatId)
         .collection('messages')
@@ -218,28 +260,34 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       _shouldScrollToBottom = false;
     });
+  }
 
-    final tokenDoc =
-        await FirebaseFirestore.instance
-            .collection('tokens')
-            .doc(receiverId)
-            .get();
-    final fcmToken = tokenDoc.data()?['token'];
-    if (fcmToken != null) {
-      const url = 'https://fcm-server-9wga.onrender.com/send-chat';
-      final resp = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'token': fcmToken,
-          'senderName': user.displayName ?? 'Someone',
-          'messageText': text,
-        }),
-      );
-      if (resp.statusCode == 200) {
-        await ref.update({'notified': true, 'delivered': true});
-      }
+  Future<void> _updateMessage() async {
+    final newText = _messageController.text.trim();
+    if (_editingMessageId == null ||
+        newText.isEmpty ||
+        newText == _originalEditingText) {
+      setState(() {
+        _editingMessageId = null;
+        _originalEditingText = null;
+      });
+      _messageController.clear();
+      return;
     }
+
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(widget.chatId)
+        .collection('messages')
+        .doc(_editingMessageId)
+        .update({'text': newText, 'edited': true});
+
+    setState(() {
+      _editingMessageId = null;
+      _originalEditingText = null;
+    });
+
+    _messageController.clear();
   }
 
   void _logout() async {
@@ -288,41 +336,101 @@ class _ChatScreenState extends State<ChatScreen> {
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.isAdmin ? 'Admin Chat' : 'Chat'),
-          actions: [
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'toggle_lock') {
-                  _toggleLock(context);
-                } else if (value == 'logout') {
-                  _logout();
-                }
-              },
-              itemBuilder:
-                  (context) => [
-                    PopupMenuItem(
-                      value: 'toggle_lock',
-                      child: Text(
-                        _lockEnabled ? 'Disable Lock' : 'Enable Lock',
+          title:
+              _selectedMessageId != null
+                  ? const Text("1 selected")
+                  : Text(widget.isAdmin ? 'Admin Chat' : 'Chat'),
+          leading:
+              _selectedMessageId != null
+                  ? IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      setState(() {
+                        _selectedMessageId = null;
+                      });
+                    },
+                  )
+                  : null,
+          actions:
+              _selectedMessageId != null
+                  ? [
+                    if (_isSelectedMessageMine) ...[
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: () {
+                          final doc = _selectedMessageDoc;
+                          final data = doc?.data() as Map<String, dynamic>?;
+
+                          if (data == null) return;
+
+                          _messageController.text = data['text'] ?? '';
+                          _messageController
+                              .selection = TextSelection.fromPosition(
+                            TextPosition(
+                              offset: _messageController.text.length,
+                            ),
+                          );
+
+                          setState(() {
+                            _editingMessageId = doc?.id ?? '';
+                            _originalEditingText = data['text'];
+                            _selectedMessageId = null;
+                          });
+                        },
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          _deleteMessage(_selectedMessageId!);
+                          setState(() {
+                            _selectedMessageId = null;
+                          });
+                        },
+                      ),
+                    ],
+                  ]
+                  : [
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'toggle_lock') {
+                          _toggleLock(context);
+                        } else if (value == 'logout') {
+                          _logout();
+                        }
+                      },
+                      itemBuilder:
+                          (context) => [
+                            PopupMenuItem(
+                              value: 'toggle_lock',
+                              child: Text(
+                                _lockEnabled ? 'Disable Lock' : 'Enable Lock',
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'logout',
+                              child: Text('Logout'),
+                            ),
+                          ],
                     ),
-                    const PopupMenuItem(value: 'logout', child: Text('Logout')),
                   ],
-            ),
-          ],
         ),
+
         body: Column(
           children: [
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: messagesRef.snapshots(),
+
                 builder: (context, snapshot) {
-                  if (snapshot.hasError)
+                  if (snapshot.hasError) {
                     return const Center(child: Text('Error loading messages.'));
-                  if (!snapshot.hasData)
+                  }
+                  if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
+                  }
 
                   final messages = snapshot.data?.docs ?? [];
+                  _messages = messages;
                   if (messages.isNotEmpty) _handleMessageSeen(snapshot.data!);
 
                   if (messages.isNotEmpty) {
@@ -371,8 +479,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       final doc = messages[messages.length - 1 - idx];
                       final data = doc.data() as Map<String, dynamic>;
                       final messageId = doc.id;
-                      if (data['deleted'] == true)
-                        return const SizedBox.shrink();
+
+                      final isDeleted = data['deleted'] == true;
                       final isMe = data['senderId'] == _currentUserId;
                       final isSelected = messageId == _selectedMessageId;
                       final ts = (data['timestamp'] as Timestamp?)?.toDate();
@@ -398,10 +506,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           });
                         },
                         onHorizontalDragEnd: (details) {
-                          // Swipe right to reply
                           if (details.primaryVelocity != null &&
                               details.primaryVelocity! > 0 &&
-                              !isMe) {
+                              !isMe &&
+                              !isDeleted) {
+                            // Only reply if not deleted
                             setState(() {
                               _replyToText = data['text'];
                               _replyToSenderId = data['senderId'];
@@ -409,11 +518,15 @@ class _ChatScreenState extends State<ChatScreen> {
                           }
                         },
                         child: MessageBubble(
-                          text: data['text'] ?? '',
+                          text:
+                              data['text'] ?? '', // ✅ Always pass the real text
                           isMe: isMe,
                           timestamp: ts,
                           isSelected: isSelected,
-                          onDelete: () => _deleteMessage(messageId),
+                          onDelete:
+                              isDeleted
+                                  ? null
+                                  : () => _deleteMessage(messageId),
                           onTap: () {
                             final pos = _scrollController.position.pixels;
                             setState(() {
@@ -431,6 +544,23 @@ class _ChatScreenState extends State<ChatScreen> {
                           statusIcon: _buildStatusIcon(data),
                           replyToText: replyToText,
                           isReplyFromMe: isReplyFromMe,
+                          deleted: isDeleted,
+                          onEdit:
+                              isMe && !isDeleted
+                                  ? () {
+                                    setState(() {
+                                      _editingMessageId = messageId;
+                                      _originalEditingText = data['text'];
+                                    });
+                                    _messageController.text = data['text'];
+                                    _messageController
+                                        .selection = TextSelection.fromPosition(
+                                      TextPosition(
+                                        offset: _messageController.text.length,
+                                      ),
+                                    );
+                                  }
+                                  : null,
                         ),
                       );
                     },
@@ -439,6 +569,42 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             const Divider(height: 1),
+            if (_editingMessageId != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange[100],
+                  border: const Border(
+                    left: BorderSide(color: Colors.orange, width: 4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Editing message...',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        setState(() {
+                          _editingMessageId = null;
+                          _messageController.clear();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
 
             if (_replyToText != null)
               Container(
@@ -486,16 +652,44 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: TextField(
                       controller: _messageController,
                       textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendMessage(),
-                      decoration: const InputDecoration(
-                        hintText: 'Type a message...',
+                      onSubmitted: (_) {
+                        if (_editingMessageId != null) {
+                          _updateMessage();
+                        } else {
+                          _sendMessage();
+                        }
+                      },
+                      decoration: InputDecoration(
+                        hintText:
+                            _editingMessageId != null
+                                ? 'Edit your message...'
+                                : 'Type a message...',
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.send),
-                    onPressed: _sendMessage,
+                    icon: Icon(
+                      _editingMessageId != null ? Icons.check : Icons.send,
+                    ),
+                    onPressed: () {
+                      if (_editingMessageId != null) {
+                        _updateMessage();
+                      } else {
+                        _sendMessage();
+                      }
+                    },
                   ),
+                  if (_editingMessageId != null)
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        setState(() {
+                          _editingMessageId = null;
+                          _originalEditingText = null;
+                          _messageController.clear();
+                        });
+                      },
+                    ),
                 ],
               ),
             ),
