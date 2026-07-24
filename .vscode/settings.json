@@ -1,0 +1,7 @@
+{
+    "dart.analysisExcludedFolders": [
+        "flutter_local_notifications_patched",
+        "../Agro-Prod",
+        "../Agro-Prod/**"
+    ]
+}

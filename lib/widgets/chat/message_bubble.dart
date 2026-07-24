@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../helper/widget/text/app_text.dart';
+import '../../helper/core/theme/color_helper.dart';
+
+/// Reusable message bubble widget for chat screens.
+/// Adapts Wanderlust MessageBubble to Agro-Prod theme and patterns.
 class MessageBubble extends StatelessWidget {
   final String text;
   final bool isMe;
@@ -9,10 +14,7 @@ class MessageBubble extends StatelessWidget {
   final Widget? statusIcon;
   final VoidCallback? onDelete;
   final VoidCallback? onTap;
-
-  // ✅ New
   final VoidCallback? onEdit;
-
   final String? replyToText;
   final bool isReplyFromMe;
   final bool deleted;
@@ -34,42 +36,61 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Bubble colors based on theme
+    final bubbleColor =
+        isMe
+            ? AppColorHelper.primaryColor.withValues(alpha: 0.15)
+            : AppColorHelper.cardColor;
+    final textColor =
+        isMe
+            ? AppColorHelper.primaryTextColor
+            : AppColorHelper.primaryTextColor;
+    final secondaryTextColor = AppColorHelper.secondaryTextColor;
+    final replyBorderColor =
+        isReplyFromMe
+            ? AppColorHelper.primaryColor
+            : AppColorHelper.secondaryTextColor;
 
-    print('Rendering bubble: deleted=$deleted, text="$text"');
-
+    // The inner bubble content
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isMe ? Colors.blue[200] : Colors.grey[300],
+        color: bubbleColor,
         borderRadius: BorderRadius.circular(12),
+        border:
+            isSelected
+                ? Border.all(color: AppColorHelper.primaryColor, width: 2)
+                : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Reply preview
           if (replyToText != null && !deleted)
             Container(
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: AppColorHelper.backgroundColor,
                 border: Border(
-                  left: BorderSide(
-                    color: isReplyFromMe ? Colors.blue : Colors.grey.shade500,
-                    width: 4,
-                  ),
+                  left: BorderSide(color: replyBorderColor, width: 4),
                 ),
               ),
               child: Text(
                 '${isReplyFromMe ? "You" : "They"}: $replyToText',
-                style: const TextStyle(
-                  fontStyle: FontStyle.italic,
-                  color: Colors.black87,
+                style: textStyle(
+                  12,
+                  secondaryTextColor,
+                  FontWeight.w500,
+                  height: 1.3,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+
+          // Message content + timestamp/status row
           Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -79,24 +100,35 @@ class MessageBubble extends StatelessWidget {
                     deleted
                         ? Text(
                           'This message was deleted',
-                          style: TextStyle(
-                            fontStyle: FontStyle.italic,
-                            color: Colors.red.shade400,
-                            fontSize: 14,
-                          ),
+                          style: textStyle(
+                            14,
+                            AppColorHelper.warningRedColor,
+                            FontWeight.w400,
+                            height: 1.3,
+                          ).copyWith(fontStyle: FontStyle.italic),
                         )
-                        : Text(text, style: const TextStyle(fontSize: 16)),
+                        : Text(
+                          text,
+                          style: textStyle(
+                            15,
+                            textColor,
+                            FontWeight.w500,
+                            height: 1.4,
+                          ),
+                        ),
               ),
               const SizedBox(width: 6),
               if (!deleted && (timestamp != null || statusIcon != null))
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     if (timestamp != null)
                       Text(
                         DateFormat('hh:mm a').format(timestamp!),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.black54,
+                        style: textStyle(
+                          10,
+                          secondaryTextColor.withValues(alpha: 0.8),
+                          FontWeight.w400,
                         ),
                       ),
                     if (statusIcon != null) ...[
@@ -111,6 +143,7 @@ class MessageBubble extends StatelessWidget {
       ),
     );
 
+    // Wrap with GestureDetector for tap handling
     return GestureDetector(
       onTap: onTap,
       child: Row(

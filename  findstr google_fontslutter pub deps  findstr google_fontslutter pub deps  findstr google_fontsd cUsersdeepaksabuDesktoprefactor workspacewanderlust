@@ -1,0 +1,302 @@
+warning: LF will be replaced by CRLF in android/app/build.gradle.kts.
+The file will have its original line endings in your working directory
+warning: LF will be replaced by CRLF in flutter_local_notifications_patched/pubspec.yaml.
+The file will have its original line endings in your working directory
+warning: LF will be replaced by CRLF in macos/Flutter/GeneratedPluginRegistrant.swift.
+The file will have its original line endings in your working directory
+[1mdiff --git a/analysis_options.yaml b/analysis_options.yaml[m
+[1mindex 0d29021..8ab01d5 100644[m
+[1m--- a/analysis_options.yaml[m
+[1m+++ b/analysis_options.yaml[m
+[36m@@ -24,5 +24,10 @@[m [mlinter:[m
+     # avoid_print: false  # Uncomment to disable the `avoid_print` rule[m
+     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule[m
+ [m
+[32m+[m[32m# Exclude third-party local packages from analysis[m
+[32m+[m[32manalyzer:[m
+[32m+[m[32m  exclude:[m
+[32m+[m[32m    - flutter_local_notifications_patched/**[m
+[32m+[m
+ # Additional information about this file can be found at[m
+ # https://dart.dev/guides/language/analysis-options[m
+[1mdiff --git a/android/app/build.gradle.kts b/android/app/build.gradle.kts[m
+[1mindex 3b78261..110ef7f 100644[m
+[1m--- a/android/app/build.gradle.kts[m
+[1m+++ b/android/app/build.gradle.kts[m
+[36m@@ -12,7 +12,7 @@[m [mandroid {[m
+ [m
+     defaultConfig {[m
+         applicationId = "com.example.wanderlust"[m
+[31m-        minSdk = 21[m
+[32m+[m[32m        minSdk = flutter.minSdkVersion[m
+         targetSdk = 33[m
+         versionCode = 1[m
+         versionName = "1.0"[m
+[1mdiff --git a/flutter_local_notifications_patched/pubspec.yaml b/flutter_local_notifications_patched/pubspec.yaml[m
+[1mindex 83fec62..f4cc6fb 100644[m
+[1m--- a/flutter_local_notifications_patched/pubspec.yaml[m
+[1m+++ b/flutter_local_notifications_patched/pubspec.yaml[m
+[36m@@ -32,9 +32,8 @@[m [mflutter:[m
+         pluginClass: FlutterLocalNotificationsPlugin[m
+       macos:[m
+         pluginClass: FlutterLocalNotificationsPlugin[m
+[31m-      linux:[m
+[31m-        default_package: flutter_local_notifications_linux[m
+[32m+[m
+ [m
+ environment:[m
+[31m-  sdk: ">=2.15.0 <3.0.0"[m
+[32m+[m[32m  sdk: ">=3.0.0 <4.0.0"[m
+   flutter: ">=2.8.0"[m
+[1mdiff --git a/lib/helpers/chat_sound_player.dart b/lib/helpers/chat_sound_player.dart[m
+[1mdeleted file mode 100644[m
+[1mindex a72e578..0000000[m
+[1m--- a/lib/helpers/chat_sound_player.dart[m
+[1m+++ /dev/null[m
+[36m@@ -1,22 +0,0 @@[m
+[31m-import 'package:audioplayers/audioplayers.dart';[m
+[31m-[m
+[31m-class ChatSoundPlayer {[m
+[31m-  static final AudioPlayer _sendPlayer = AudioPlayer();[m
+[31m-  static final AudioPlayer _receivePlayer = AudioPlayer();[m
+[31m-[m
+[31m-  static Future<void> playSendSound() async {[m
+[31m-    try {[m
+[31m-      await _sendPlayer.play(AssetSource('sounds/send.wav'));[m
+[31m-    } catch (e) {[m
+[31m-      print('Send sound error: $e');[m
+[31m-    }[m
+[31m-  }[m
+[31m-[m
+[31m-  static Future<void> playReceiveSound() async {[m
+[31m-    try {[m
+[31m-      await _receivePlayer.play(AssetSource('sounds/recive.mp3'));[m
+[31m-    } catch (e) {[m
+[31m-      print('Receive sound error: $e');[m
+[31m-    }[m
+[31m-  }[m
+[31m-}[m
+[1mdiff --git a/lib/helpers/chat_utils.dart b/lib/helpers/chat_utils.dart[m
+[1mdeleted file mode 100644[m
+[1mindex e69de29..0000000[m
+[1mdiff --git a/lib/helpers/notification_helper.dart b/lib/helpers/notification_helper.dart[m
+[1mdeleted file mode 100644[m
+[1mindex de373fb..0000000[m
+[1m--- a/lib/helpers/notification_helper.dart[m
+[1m+++ /dev/null[m
+[36m@@ -1,261 +0,0 @@[m
+[31m-import 'dart:io';[m
+[31m-import 'package:firebase_messaging/firebase_messaging.dart';[m
+[31m-import 'package:firebase_auth/firebase_auth.dart';[m
+[31m-import 'package:cloud_firestore/cloud_firestore.dart';[m
+[31m-import 'package:flutter_local_notifications/flutter_local_notifications.dart';[m
+[31m-import 'package:http/http.dart' as http;[m
+[31m-import 'package:path_provider/path_provider.dart';[m
+[31m-import 'package:firebase_core/firebase_core.dart';[m
+[31m-import '../shared/active_chat_tracker.dart';[m
+[31m-[m
+[31m-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {[m
+[31m-  await Firebase.initializeApp();[m
+[31m-[m
+[31m-  try {[m
+[31m-    final data = message.data;[m
+[31m-    final String? chatId = data['chatId'];[m
+[31m-    final String? messageId = data['messageId'];[m
+[31m-    final String? wakeType = data['wakeType'];[m
+[31m-[m
+[31m-    print("🌙 Background notification received with wakeType: $wakeType");[m
+[31m-[m
+[31m-    if (wakeType == null || wakeType == 'message') {[m
+[31m-      if (chatId != null && messageId != null) {[m
+[31m-        await NotificationHelper._markMessageAsDelivered(chatId, messageId);[m
+[31m-        print("📦 Background: Message marked as delivered in Firestore");[m
+[31m-      } else {[m
+[31m-        print([m
+[31m-          "⚠️ Background: chatId or messageId missing in notification data",[m
+[31m-        );[m
+[31m-      }[m
+[31m-    }[m
+[31m-[m
+[31m-    if (wakeType == 'wakeOnly') {[m
+[31m-      print("🌐 Background: Wake-only task triggered.");[m
+[31m-    }[m
+[31m-  } catch (e) {[m
+[31m-    print("❌ Background error: $e");[m
+[31m-  }[m
+[31m-}[m
+[31m-[m
+[31m-class NotificationHelper {[m
+[31m-  static final FirebaseMessaging _firebaseMessaging =[m
+[31m-      FirebaseMessaging.instance;[m
+[31m-  static final FirebaseAuth _auth = FirebaseAuth.instance;[m
+[31m-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;[m
+[31m-  static final FlutterLocalNotificationsPlugin[m
+[31m-  _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();[m
+[31m-[m
+[31m-  static Future<void> clearAllNotifications() async {[m
+[31m-    await _flutterLocalNotificationsPlugin.cancelAll();[m
+[31m-    print('🔔 All notifications cleared');[m
+[31m-  }[m
+[31m-[m
+[31m-  static Future<void> initializeFCM() async {[m
+[31m-    bool granted = await checkPermissionStatus();[m
+[31m-[m
+[31m-    await FirebaseMessaging.instance.requestPermission();[m
+[31m-    await FirebaseMessaging.instance[m
+[31m-        .setForegroundNotificationPresentationOptions([m
+[31m-          alert: true,[m
+[31m-          badge: true,[m
+[31m-          sound: true,[m
+[31m-        );[m
+[31m-[m
+[31m-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);[m
+[31m-[m
+[31m-    _initializeLocalNotifications();[m
+[31m-[m
+[31m-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {[m
+[31m-      final user = FirebaseAuth.instance.currentUser;[m
+[31m-      if (user != null) {[m
+[31m-        await FirebaseFirestore.instance[m
+[31m-            .collection('users')[m
+[31m-            .doc(user.uid)[m
+[31m-            .update({'fcmToken': newToken});[m
+[31m-        print('🔁 Token refreshed and updated in Firestore');[m
+[31m-      }[m
+[31m-    });[m
+[31m-  }[m
+[31m-[m
+[31m-  static Future<bool> checkPermissionStatus() async {[m
+[31m-    NotificationSettings settings =[m
+[31m-        await _firebaseMessaging.getNotificationSettings();[m
+[31m-    return settings.authorizationStatus == AuthorizationStatus.authorized;[m
+[31m-  }[m
+[31m-[m
+[31m-  static void setUpForegroundListener() {[m
+[31m-    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {[m
+[31m-      final notification = message.notification;[m
+[31m-      final data = message.data;[m
+[31m-      final String? title = notification?.title;[m
+[31m-      final String? body = notification?.body;[m
+[31m-      final String? imageUrl =[m
+[31m-          notification?.android?.imageUrl ?? notification?.apple?.imageUrl;[m
+[31m-      final String? chatId = data['chatId'];[m
+[31m-      final String? messageId = data['messageId'];[m
+[31m-[m
+[31m-      print('🔔 Foreground Notification: $title');[m
+[31m-      print('📩 Body: $body');[m
+[31m-      print('🖼️ Image: $imageUrl');[m
+[31m-[m
+[31m-      try {[m
+[31m-        if (chatId != null && messageId != null) {[m
+[31m-          await _markMessageAsDelivered(chatId, messageId);[m
+[31m-          print("✅ Foreground: Message marked as delivered in Firestore");[m
+[31m-        } else {[m
+[31m-          print([m
+[31m-            "⚠️ Foreground: chatId or messageId missing in notification data",[m
+[31m-          );[m
+[31m-        }[m
+[31m-      } catch (e) {[m
+[31m-        print("❌ Foreground error marking message as delivered: $e");[m
+[31m-      }[m
+[31m-[m
+[31m-      if (chatId != null && ActiveChatTracker.instance.isActive(chatId)) {[m
+[31m-        print("🔕 Suppressing local notification for active chatId: $chatId");[m
+[31m-        return;[m
+[31m-      }[m
+[31m-[m
+[31m-      showLocalNotification(title, body, imageUrl: imageUrl);[m
+[31m-    });[m
+[31m-  }[m
+[31m-[m
+[31m-  static Future<void> saveTokenToFirestore(bool isAdmin) async {[m
+[31m-    final user = _auth.currentUser;[m
+[31m-    if (user == null) {[m
+[31m-      print('❌ No logged-in user found.');[m
+[31m-      return;[m
+[31m-    }[m
+[31m-[m
+[31m-    String? token = await _firebaseMessaging.getToken();[m
+[31m-    if (token == null) {[m
+[31m-      print('❌ Could not get FCM token');[m
+[31m-      return;[m
+[31m-    }[m
+[31m-[m
+[31m-    try {[m
+[31m-      await _firestore.collection('users').doc(user.uid).set({[m
+[31m-        'fcmToken': token,[m
+[31m-        'isAdmin': isAdmin,[m
+[31m-        'lastUpdated': FieldValue.serverTimestamp(),[m
+[31m-      }, SetOptions(merge: true));[m
+[31m-[m
+[31m-      print('✅ FCM token saved for ${isAdmin ? "admin" : "user"}');[m
+[31m-    } catch (e) {[m
+[31m-      print('❌ Failed to save token: $e');[m
+[31m-    }[m
+[31m-  }[m
+[31m-[m
+[31m-  static final FlutterLocalNotificationsPlugin _localNotificationsPlugin =[m
+[31m-      FlutterLocalNotificationsPlugin();[m
+[31m-[m
+[31m-  static void _initializeLocalNotifications() {[m
+[31m-    const AndroidInitializationSettings initializationSettingsAndroid =[m
+[31m-        AndroidInitializationSettings('@mipmap/ic_launcher');[m
+[31m-[m
+[31m-    const InitializationSettings initializationSettings =[m
+[31m-        InitializationSettings(android: initializationSettingsAndroid);[m
+[31m-[m
+[31m-    _localNotificationsPlugin.initialize(initializationSettings);[m
+[31m-  }[m
+[31m-[m
+[31m-  static Future<void> showLocalNotification([m
+[31m-    String? title,[m
+[31m-    String? body, {[m
+[31m-    String? imageUrl,[m
+[31m-  }) async {[m
+[31m-    AndroidNotificationDetails androidDetails;[m
+[31m-[m
+[31m-    if (imageUrl != null && imageUrl.isNotEmpty) {[m
+[31m-      try {[m
+[31m-        final String largeIconPath = await _downloadAndSaveFile([m
+[31m-          imageUrl,[m
+[31m-          'largeIcon',[m
+[31m-        );[m
+[31m-        final String bigPicturePath = await _downloadAndSaveFile([m
+[31m-          imageUrl,[m
+[31m-          'bigPicture',[m
+[31m-        );[m
+[31m-[m
+[31m-        final BigPictureStyleInformation bigPictureStyleInformation =[m
+[31m-            BigPictureStyleInformation([m
+[31m-              FilePathAndroidBitmap(bigPicturePath),[m
+[31m-              largeIcon: FilePathAndroidBitmap(largeIconPath),[m
+[31m-              contentTitle: title,[m
+[31m-              summaryText: body,[m
+[31m-            );[m
+[31m-[m
+[31m-        androidDetails = AndroidNotificationDetails([m
+[31m-          'high_importance_channel',[m
+[31m-          'High Importance Notifications',[m
+[31m-          channelDescription:[m
+[31m-              'This channel is used for important notifications.',[m
+[31m-          importance: Importance.max,[m
+[31m-          priority: Priority.high,[m
+[31m-          styleInformation: bigPictureStyleInformation,[m
+[31m-          playSound: true,[m
+[31m-        );[m
+[31m-      } catch (e) {[m
+[31m-        print('❌ Failed to load image for notification: $e');[m
+[31m-        androidDetails = _defaultAndroidDetails();[m
+[31m-      }[m
+[31m-    } else {[m
+[31m-      androidDetails = _defaultAndroidDetails();[m
+[31m-    }[m
+[31m-[m
+[31m-    final NotificationDetails notificationDetails = NotificationDetails([m
+[31m-      android: androidDetails,[m
+[31m-    );[m
+[31m-[m
+[31m-    await _flutterLocalNotificationsPlugin.show([m
+[31m-      0,[m
+[31m-      title,[m
+[31m-      body,[m
+[31m-    

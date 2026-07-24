@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'message_bubble.dart';
 
+import 'message_bubble.dart';
+import '../../model/chat_model.dart';
+
+/// Reusable messages list view widget for chat screens.
+/// Follows Agro-Prod shared widget patterns.
+/// Works with ChatMessage model and receives all data through parameters.
 class MessagesListView extends StatelessWidget {
-  final List<QueryDocumentSnapshot> messages;
+  final List<ChatMessage> messages;
   final String currentUserId;
   final String? selectedMessageId;
   final Function(String) onMessageTap;
   final Function(String) onDelete;
-  final Widget Function(Map<String, dynamic>) buildStatusIcon;
+  final Function(String) onEdit;
+  final Widget Function(ChatMessage) buildStatusIcon;
+  final bool reverse;
 
   const MessagesListView({
     super.key,
@@ -17,32 +23,34 @@ class MessagesListView extends StatelessWidget {
     required this.selectedMessageId,
     required this.onMessageTap,
     required this.onDelete,
+    required this.onEdit,
     required this.buildStatusIcon,
+    this.reverse = true,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      reverse: true,
+      reverse: reverse,
       itemCount: messages.length,
       itemBuilder: (ctx, idx) {
-        final doc = messages[messages.length - 1 - idx];
-        final data = doc.data() as Map<String, dynamic>;
-        final messageId = doc.id;
-        final text = data['text'] ?? '';
-        final senderId = data['senderId'] ?? '';
-        final ts = (data['timestamp'] as Timestamp?)?.toDate();
-        final isMe = senderId == currentUserId;
-        final isSelected = messageId == selectedMessageId;
+        final index = reverse ? messages.length - 1 - idx : idx;
+        final message = messages[index];
+        final isMe = message.senderId == currentUserId;
+        final isSelected = message.messageId == selectedMessageId;
 
         return MessageBubble(
-          text: text,
+          text: message.text,
           isMe: isMe,
-          timestamp: ts,
+          timestamp: message.timestamp,
           isSelected: isSelected,
-          statusIcon: isMe ? buildStatusIcon(data) : null,
-          onDelete: isMe ? () => onDelete(messageId) : null,
-          onTap: () => onMessageTap(messageId),
+          statusIcon: isMe ? buildStatusIcon(message) : null,
+          onDelete: isMe ? () => onDelete(message.messageId) : null,
+          onEdit: isMe ? () => onEdit(message.messageId) : null,
+          onTap: () => onMessageTap(message.messageId),
+          replyToText: message.replyToText,
+          isReplyFromMe: message.replyToSenderId == currentUserId,
+          deleted: message.deleted,
         );
       },
     );

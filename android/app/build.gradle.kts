@@ -7,13 +7,13 @@ plugins {
 
 android {
     namespace = "com.example.wanderlust"
-    compileSdk = 35
-    ndkVersion = "27.0.12077973"
+    compileSdk = 36
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.example.wanderlust"
-        minSdk = 21
-        targetSdk = 33
+        minSdk = flutter.minSdkVersion
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         multiDexEnabled = true
@@ -21,13 +21,13 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true // ✅ Required for Java 8+ APIs
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     buildTypes {
@@ -48,7 +48,7 @@ flutter {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:1.1.5") // ✅ Required
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") // ✅ Required for Java 17
     implementation("com.squareup.okhttp3:okhttp:4.10.0")
     // ✅ Use a consistent version for all Firebase dependencies (e.g. BOM)
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
