@@ -5,10 +5,12 @@
 import 'package:get/get.dart';
 
 import '../controller/admin_home_controller.dart';
+import '../service/auth_service.dart';
 
 class AdminHomeBinding implements Bindings {
   @override
   void dependencies() {
     Get.lazyPut<AdminHomeController>(() => AdminHomeController(), fenix: true);
+    Get.lazyPut<AuthService>(() => AuthService(), fenix: true);
   }
 }

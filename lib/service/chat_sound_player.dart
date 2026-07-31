@@ -1,64 +1,46 @@
 // chat_sound_player.dart
-// Chat Sound Player - Following Agro-Prod patterns
+// Chat Sound Player - Migrated from Wanderlust
+// Follows Agro-Prod patterns: GetX service for sound playback
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
-/// Chat Sound Player - Handles playing send/receive sounds
-class ChatSoundPlayer {
-  static ChatSoundPlayer? _instance;
+import '../helper/app_message.dart';
+
+/// Service to play chat send/receive sounds
+/// Uses separate AudioPlayer instances for concurrent playback
+class ChatSoundPlayer extends GetxService {
+  static ChatSoundPlayer get instance => Get.find<ChatSoundPlayer>();
+
   final AudioPlayer _sendPlayer = AudioPlayer();
   final AudioPlayer _receivePlayer = AudioPlayer();
-  bool _initialized = false;
 
-  /// Get singleton instance
-  static ChatSoundPlayer get instance {
-    _instance ??= ChatSoundPlayer._internal();
-    return _instance!;
-  }
-
-  ChatSoundPlayer._internal();
-
-  /// Initialize sound players
-  Future<void> initialize() async {
-    if (_initialized) return;
-
-    try {
-      // Load sound assets - replace with actual asset paths
-      await _sendPlayer.setSource(AssetSource('sounds/send.mp3'));
-      await _receivePlayer.setSource(AssetSource('sounds/receive.mp3'));
-      _initialized = true;
-    } catch (e) {
-      // Sounds not available, continue without sounds
-      debugPrint('ChatSoundPlayer: Could not load sounds: $e');
-    }
-  }
-
-  /// Play send sound
+  /// Play the send sound
   Future<void> playSendSound() async {
-    if (!_initialized) return;
     try {
-      await _sendPlayer.seek(Duration.zero);
-      await _sendPlayer.resume();
+      await _sendPlayer.play(AssetSource('sounds/send.wav'));
+      misInfoMessage('≡ƒöè ChatSoundPlayer: Send sound played');
     } catch (e) {
-      debugPrint('ChatSoundPlayer: Error playing send sound: $e');
+      misErrorMessage('≡ƒöè ChatSoundPlayer: Send sound error: $e');
     }
   }
 
-  /// Play receive sound
+  /// Play the receive sound
   Future<void> playReceiveSound() async {
-    if (!_initialized) return;
     try {
-      await _receivePlayer.seek(Duration.zero);
-      await _receivePlayer.resume();
+      await _receivePlayer.play(AssetSource('sounds/receive.mp3'));
+      misInfoMessage('≡ƒöè ChatSoundPlayer: Receive sound played');
     } catch (e) {
-      debugPrint('ChatSoundPlayer: Error playing receive sound: $e');
+      misErrorMessage('≡ƒöè ChatSoundPlayer: Receive sound error: $e');
     }
   }
 
-  /// Dispose resources
-  void dispose() {
+  /// Dispose audio players
+  @override
+  void onClose() {
     _sendPlayer.dispose();
     _receivePlayer.dispose();
+    misInfoMessage('≡ƒöè ChatSoundPlayer: Disposed audio players');
+    super.onClose();
   }
 }
