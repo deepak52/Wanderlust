@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import '../helper/core/base/app_base_controller.dart';
 import '../helper/route.dart';
+import '../model/chat_model.dart';
 
 class TourDateQuestionController extends AppBaseController {
   final PageController pageController = PageController();
@@ -85,7 +86,7 @@ class TourDateQuestionController extends AppBaseController {
       }
 
       final adminId = adminQuery.docs.first.id;
-      final chatId = '${adminId}_$userId';
+      final chatId = ChatUtils.generateChatId(adminId, userId);
 
       hideLoader();
 

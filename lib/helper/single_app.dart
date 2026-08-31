@@ -1,5 +1,6 @@
 // ohaan_app.dart
 
+import 'package:get/get.dart';
 import 'package:logger/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'app_string.dart';
@@ -45,6 +46,9 @@ class MyApplication {
 
   Future<void> setUpSharedPreference() async {
     preferenceHelper = await SharedPreferenceHelper().init();
+    if (!Get.isRegistered<SharedPreferenceHelper>()) {
+      Get.put(preferenceHelper!, permanent: true);
+    }
   }
 }
 

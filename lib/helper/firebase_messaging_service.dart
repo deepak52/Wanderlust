@@ -12,6 +12,8 @@ import 'package:path_provider/path_provider.dart';
 import '../service/active_chat_tracker.dart';
 import '../service/chat_sound_player.dart';
 import '../helper/app_message.dart';
+import '../helper/app_string.dart';
+import '../helper/single_app.dart';
 
 /// Background message handler for FCM
 /// Must be a top-level function (not a class method)
@@ -163,6 +165,10 @@ class FirebaseMessagingService {
         .getToken()
         .then((token) async {
           misInfoMessage('Push Notification Token: $token');
+          final MyApplication misApp = Get.find<MyApplication>();
+          if (misApp.preferenceHelper != null) {
+            await misApp.preferenceHelper!.setString(fbEidKey, token ?? '');
+          }
         })
         .catchError((error) {
           misErrorMessage('Error getting push notification token: $error');
@@ -309,6 +315,18 @@ class FirebaseMessagingService {
     } catch (e) {
       misErrorMessage('Error getting FCM token: $e');
       return null;
+    }
+  }
+
+  /// Save FCM token to user document in Firestore
+  static Future<void> saveTokenToFirestore(bool isAdmin) async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        misInfoMessage('Saved FCM token to firestore (isAdmin: $isAdmin)');
+      }
+    } catch (e) {
+      misErrorMessage('Error saving FCM token to firestore: $e');
     }
   }
 }

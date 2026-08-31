@@ -21,6 +21,10 @@ import '../service/auth_service.dart';
 class LoginController extends AppBaseController {
   final AuthService _authService = Get.find<AuthService>();
 
+  // Loading state
+  @override
+  RxBool rxIsLoading = false.obs;
+
   // fields
   TextEditingController userController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
@@ -219,17 +223,15 @@ class LoginController extends AppBaseController {
 
       bool isAdmin = await _authService.login(username, password);
       // login returns bool (isAdmin), not LoginResponse
-      if (isAdmin != null) {
-        rxLoginResponse.value = LoginResponse(data: 'Login successful');
-        myApplication.preferenceHelper!.setString(
-          accessTokenKey,
-          rxLoginResponse.value!.data ?? '',
-        );
+      rxLoginResponse.value = LoginResponse(data: 'Login successful');
+      myApplication.preferenceHelper!.setString(
+        accessTokenKey,
+        rxLoginResponse.value!.data ?? '',
+      );
 
-        bool setProfile = await _callUserSignIn(username, password);
-        //bool setProfile = true;
-        return setProfile;
-      }
+      bool setProfile = await _callUserSignIn(username, password);
+      //bool setProfile = true;
+      return setProfile;
     } catch (e) {
       appLog('$exceptionMsg $e', logging: Logging.error);
     } finally {

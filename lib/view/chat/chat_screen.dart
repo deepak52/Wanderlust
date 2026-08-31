@@ -3,6 +3,8 @@
 // Uses ChatController, MessageBubble, MessagesListView, MessageInputField
 // Contains NO business logic - only UI building and action forwarding
 
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -17,53 +19,114 @@ class ChatScreen extends AppBaseView<ChatController> {
   const ChatScreen({super.key});
 
   @override
-  Widget buildView() => Obx(() => _widgetView());
+  Widget buildView() {
+    // CONTROLLER_IDENTITY_DEBUG: Log identityHashCode to verify single instance
+    developer.log('🔍 CONTROLLER_IDENTITY ChatScreen.buildView: controller.identityHashCode=${identityHashCode(controller)}');
+    // RXLIST_IDENTITY_DEBUG: Log identityHashCode of messages RxList
+    developer.log('🔍 RXLIST_IDENTITY ChatScreen: controller.messages identityHashCode=${identityHashCode(controller.messages)}');
+    return Obx(() {
+      // Explicitly read messages RxList to register GetX dependency
+      final messages = controller.messages;
+      developer.log('🔍 OBX_REBUILD ChatScreen: messages.length=${messages.length}');
+      return Builder(
+        builder: (context) => _widgetView(context),
+      );
+    });
+  }
 
-  Scaffold _widgetView() => appScaffold(
-    appBar: customAppBar(
-      controller.hasSelectedMessage ? '1 selected' : 'Chat',
-      actions:
+  Widget _widgetView(BuildContext context) {
+    return PopScope(
+      canPop: controller.isAdmin,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          controller.onWillPop();
+        }
+      },
+      child: appScaffold(
+        appBar: customAppBar(
           controller.hasSelectedMessage
-              ? _buildSelectionActions()
-              : _buildDefaultActions(),
-    ),
-    body: _buildBody(),
-    resizeToAvoidBottomInset: true,
-    bottomSafe: false,
-  );
+              ? '1 selected'
+              : (controller.isAdmin ? 'Admin Chat' : 'Chat'),
+          actions:
+              controller.hasSelectedMessage
+                  ? _buildSelectionActions()
+                  : _buildDefaultActions(context),
+        ),
+        body: _buildBody(),
+        resizeToAvoidBottomInset: true,
+        bottomSafe: false,
+      ),
+    );
+  }
 
   List<Widget> _buildSelectionActions() {
+    final selectedMsg = controller.selectedMessage;
+    final isDeleted = selectedMsg?.deleted ?? false;
+
     return [
-      if (controller.isSelectedMessageMine)
+      if (!isDeleted)
+        IconButton(
+          icon: const Icon(Icons.reply, color: Colors.blue),
+          tooltip: 'Reply',
+          onPressed: () {
+            controller.startReply(controller.selectedMessageId.value);
+            controller.clearSelection();
+          },
+        ),
+      if (controller.isSelectedMessageMine && !isDeleted)
         IconButton(
           icon: const Icon(Icons.edit, color: Colors.orange),
+          tooltip: 'Edit',
           onPressed:
               () => controller.startEdit(controller.selectedMessageId.value),
         ),
-      if (controller.isSelectedMessageMine)
+      if (controller.isSelectedMessageMine && !isDeleted)
         IconButton(
           icon: const Icon(Icons.delete, color: Colors.red),
+          tooltip: 'Delete',
           onPressed:
               () =>
                   controller.deleteMessage(controller.selectedMessageId.value),
         ),
       IconButton(
         icon: const Icon(Icons.close),
+        tooltip: 'Cancel',
         onPressed: controller.clearSelection,
       ),
     ];
   }
 
-  List<Widget> _buildDefaultActions() {
+  List<Widget> _buildDefaultActions(BuildContext context) {
     return [
+      Obx(
+        () => IconButton(
+          icon: Icon(
+            controller.lockEnabled.value ? Icons.lock : Icons.lock_open,
+            color: controller.lockEnabled.value ? Colors.amber : Colors.white,
+          ),
+          tooltip: controller.lockEnabled.value
+              ? 'Disable Lock'
+              : 'Enable Lock',
+          onPressed: () => controller.toggleLock(context),
+        ),
+      ),
       PopupMenuButton<String>(
         onSelected: (value) {
-          // Handle menu actions if needed
+          if (value == 'toggle_lock') {
+            controller.toggleLock(context);
+          } else if (value == 'logout') {
+            controller.logout();
+          }
         },
         itemBuilder:
-            (context) => const [
-              PopupMenuItem(value: 'clear_chat', child: Text('Clear Chat')),
-              PopupMenuItem(value: 'block_user', child: Text('Block User')),
+            (context) => [
+              PopupMenuItem(
+                value: 'toggle_lock',
+                child: Text(
+                  controller.lockEnabled.value ? 'Disable Lock' : 'Enable Lock',
+                ),
+              ),
+              const PopupMenuItem(value: 'logout', child: Text('Logout')),
             ],
       ),
     ];
@@ -75,12 +138,13 @@ class ChatScreen extends AppBaseView<ChatController> {
         // Messages list
         Expanded(
           child: MessagesListView(
-            messages: controller.messages,
+            messages: controller.messages.toList(),
             currentUserId: controller.currentUserId,
             selectedMessageId: controller.selectedMessageId.value,
             onMessageTap: controller.toggleSelection,
             onDelete: controller.deleteMessage,
             onEdit: controller.startEdit,
+            onReply: controller.startReply,
             buildStatusIcon: controller.buildStatusIcon,
             reverse: true,
           ),

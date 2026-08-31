@@ -3,23 +3,38 @@
 // Follows Agro-Prod patterns: extends AppBaseController, uses ChatService for all Firebase access
 
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helper/core/base/app_base_controller.dart';
+import '../helper/route.dart';
 import '../model/chat_model.dart';
 import '../service/chat_service.dart';
+import '../service/chat_sound_player.dart';
+import '../service/active_chat_tracker.dart';
+import '../service/lock_service.dart';
+import 'lock_controller.dart';
 
 class ChatController extends AppBaseController {
   // ==================== DEPENDENCIES ====================
   final ChatService _chatService = Get.find<ChatService>();
+  final ChatSoundPlayer _soundPlayer = Get.find<ChatSoundPlayer>();
+  final ActiveChatTracker _chatTracker = Get.find<ActiveChatTracker>();
 
   // ==================== NAVIGATION ARGUMENTS ====================
   late String chatId;
   late bool isAdmin;
   String? _currentUserId;
   String? _otherUserId;
+
+  // ==================== REACTIVE LOCK & SOUND STATE ====================
+  final RxBool lockEnabled = false.obs;
 
   // ==================== REACTIVE STATE (GetX Observables) ====================
 
@@ -112,13 +127,20 @@ class ChatController extends AppBaseController {
   @override
   void onInit() {
     super.onInit();
+    // CONTROLLER_IDENTITY_DEBUG: Log identityHashCode to verify single instance
+    developer.log('🔍 CONTROLLER_IDENTITY ChatController.onInit: identityHashCode=${identityHashCode(this)}');
     _parseArguments();
     _currentUserId = _chatService.currentUserId;
+    if (chatId.isNotEmpty) {
+      _chatTracker.setActiveChat(chatId);
+    }
+    _loadLockStatus();
     _initializeChat();
   }
 
   @override
   void onClose() {
+    _chatTracker.clearActiveChat();
     _dispose();
     messageController.dispose();
     super.onClose();
@@ -132,6 +154,9 @@ class ChatController extends AppBaseController {
       chatId = args['chatId'] as String? ?? '';
       isAdmin = args['isAdmin'] as bool? ?? false;
     }
+    
+    // STAGE 1: Print exact chatId received by ChatController from navigation
+    developer.log('🟣 STAGE1 ChatController: chatId=$chatId, isAdmin=$isAdmin, currentUserId=$_currentUserId');
   }
 
   void _initializeChat() {
@@ -146,18 +171,36 @@ class ChatController extends AppBaseController {
       // Get other participant ID from chatId
       _otherUserId = ChatUtils.getOtherParticipantId(chatId, _currentUserId!);
 
-      // Load chat room metadata
-      _loadChatRoom();
+      // Ensure chat room exists (creates if missing)
+      _ensureChatRoomExists().then((_) {
+        // Load chat room metadata
+        _loadChatRoom();
 
-      // Start listening to messages
-      _listenToMessages();
+        // Start listening to messages
+        _listenToMessages();
 
-      // Mark messages as delivered
-      _markMessagesDelivered();
+        // Mark messages as delivered
+        _markMessagesDelivered();
+      }).catchError((e) {
+        _setError('Failed to initialize chat: $e');
+      }).whenComplete(() {
+        _setLoading(false);
+      });
     } catch (e) {
       _setError('Failed to initialize chat: $e');
-    } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<void> _ensureChatRoomExists() async {
+    developer.log('🔵 ChatController._ensureChatRoomExists: START chatId=$chatId');
+    final chatDoc = await _chatService.getChatRoom(chatId);
+    if (chatDoc == null) {
+      developer.log('🔵 ChatController._ensureChatRoomExists: Chat room not found, creating...');
+      await _chatService.getOrCreateChatRoom(_otherUserId!);
+      developer.log('✅ ChatController._ensureChatRoomExists: Chat room created');
+    } else {
+      developer.log('🔵 ChatController._ensureChatRoomExists: Chat room already exists');
     }
   }
 
@@ -178,21 +221,96 @@ class ChatController extends AppBaseController {
   }
 
   void _listenToMessages() {
+    developer.log('🟢 ChatController._listenToMessages: START chatId=$chatId');
     _messagesStream = _chatService.listenToMessages(chatId);
     _messagesSubscription = _messagesStream!.listen(
       (newMessages) {
+        developer.log('🟢 ChatController._listenToMessages: Listener fired - received ${newMessages.length} messages');
         _handleMessagesSnapshot(newMessages);
       },
       onError: (error) {
+        developer.log('❌ ChatController._listenToMessages: ERROR = $error');
         _setError('Error loading messages: $error');
         _setLoading(false);
       },
     );
   }
 
+  Future<void> _loadLockStatus() async {
+    if (Get.isRegistered<LockService>()) {
+      lockEnabled.value = Get.find<LockService>().isLockEnabled();
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      lockEnabled.value = prefs.getBool('lock_enabled') ?? false;
+    }
+  }
+
+  Future<void> toggleLock(BuildContext context) async {
+    final newValue = !lockEnabled.value;
+    if (Get.isRegistered<LockController>()) {
+      await Get.find<LockController>().setLockEnabled(newValue);
+    } else if (Get.isRegistered<LockService>()) {
+      await Get.find<LockService>().setLockEnabled(newValue);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('lock_enabled', newValue);
+    }
+    lockEnabled.value = newValue;
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(newValue ? 'Lock Enabled' : 'Lock Disabled')),
+    );
+    if (newValue) {
+      _authenticateIfLocked(context);
+    }
+  }
+
+  Future<bool> _authenticateIfLocked(BuildContext context) async {
+    if (!lockEnabled.value) return true;
+    final LocalAuthentication auth = LocalAuthentication();
+    try {
+      final isAvailable =
+          await auth.canCheckBiometrics || await auth.isDeviceSupported();
+      if (!isAvailable) return true;
+      final didAuthenticate = await auth.authenticate(
+        localizedReason: 'Please authenticate to access the chat',
+      );
+      return didAuthenticate;
+    } on PlatformException catch (e) {
+      debugPrint('Authentication failed: $e');
+      return false;
+    } catch (e) {
+      debugPrint('Unexpected error: $e');
+      return false;
+    }
+  }
+
   void _handleMessagesSnapshot(List<ChatMessage> newMessages) {
+    developer.log('🟢 ChatController._handleMessagesSnapshot: Received ${newMessages.length} messages');
+    
+    // Check if new incoming message from other user
+    final isNewIncomingMessage = newMessages.isNotEmpty &&
+        messages.isNotEmpty &&
+        newMessages.length > messages.length &&
+        newMessages.last.senderId != _currentUserId;
+
+    for (final msg in newMessages) {
+      developer.log('🟢 ChatController._handleMessagesSnapshot: msgId=${msg.messageId}, senderId=${msg.senderId}, text=${msg.text}, deleted=${msg.deleted}');
+    }
     // Update reactive list
     messages.assignAll(newMessages);
+    // Force reactivity - assignAll may not notify if list reference doesn't change
+    messages.refresh();
+
+    if (isNewIncomingMessage) {
+      _soundPlayer.playReceiveSound();
+    }
+
+    // MESSAGES_LENGTH_DEBUG: Log messages.length after assignAll
+    developer.log('🔍 MESSAGES_LENGTH_DEBUG _handleMessagesSnapshot: messages.length=${messages.length}');
+    // RXLIST_IDENTITY_DEBUG: Log identityHashCode of messages RxList
+    developer.log('🔍 RXLIST_IDENTITY ChatController: messages identityHashCode=${identityHashCode(messages)}');
+    developer.log('🟢 ChatController._handleMessagesSnapshot: messages.assignAll() done, rxMessages.length=${messages.length}');
 
     // Handle seen status for incoming messages
     _markMessagesSeen(newMessages);
@@ -211,7 +329,12 @@ class ChatController extends AppBaseController {
   /// Send a new message or update an edited message
   Future<void> sendMessage() async {
     final text = messageController.text.trim();
-    if (text.isEmpty || _currentUserId == null || _otherUserId == null) return;
+    developer.log('📤 ChatController.sendMessage: chatId=$chatId, senderId=$_currentUserId, receiverId=$_otherUserId, text=$text, isEditing=$isEditing');
+    
+    if (text.isEmpty || _currentUserId == null || _otherUserId == null) {
+      developer.log('❌ ChatController.sendMessage: EARLY RETURN - empty text or null user IDs');
+      return;
+    }
 
     if (isEditing) {
       await _updateMessage(text);
@@ -229,10 +352,15 @@ class ChatController extends AppBaseController {
         replyToText: isReplying ? replyToText.value : null,
         replyToSenderId: isReplying ? replyToSenderId.value : null,
       );
+      developer.log('✅ ChatController.sendMessage: Message sent successfully');
+
+      // Play send sound
+      _soundPlayer.playSendSound();
 
       // Clear reply state after sending
       clearReply();
     } catch (e) {
+      developer.log('❌ ChatController.sendMessage: ERROR = $e');
       _setError('Failed to send message: $e');
     } finally {
       _setSending(false);
@@ -308,9 +436,10 @@ class ChatController extends AppBaseController {
   /// Start replying to a message
   void startReply(String messageId) {
     final message = messages.firstWhereOrNull((m) => m.messageId == messageId);
-    if (message != null) {
+    if (message != null && !message.deleted) {
       replyToText.value = message.text;
       replyToSenderId.value = message.senderId;
+      selectedMessageId.value = messageId;
     }
   }
 
@@ -417,6 +546,12 @@ class ChatController extends AppBaseController {
   }
 
   // ==================== NAVIGATION ====================
+
+  /// Logout current user
+  Future<void> logout() async {
+    await FirebaseAuth.instance.signOut();
+    Get.offAllNamed(loginPageRoute);
+  }
 
   /// Handle back navigation
   Future<bool> onWillPop() async {

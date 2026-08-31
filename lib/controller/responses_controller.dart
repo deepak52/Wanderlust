@@ -13,6 +13,43 @@ class ResponsesController extends AppBaseController {
   final ChatService _chatService = Get.find<ChatService>();
   final AuthService _authService = Get.find<AuthService>();
 
+  Stream<QuerySnapshot>? _responseStream;
+
+  @override
+  Future<void> onInit() async {
+    super.onInit();
+    _initializeResponseStream();
+  }
+
+  void _initializeResponseStream() {
+    _responseStream = FirebaseFirestore.instance
+        .collection('responses')
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+
+    _responseStream!.listen(
+      (snapshot) {
+        responses.assignAll(
+          snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return ResponseModel.fromFirestore(data, doc.id);
+          }).toList(),
+        );
+        isLoading.value = false;
+      },
+      onError: (error) {
+        isLoading.value = false;
+        Get.snackbar('Error', 'Failed to load responses: $error');
+      },
+    );
+  }
+
+  @override
+  void onClose() {
+    _responseStream = null;
+    super.onClose();
+  }
+
   // Filtered responses based on search query
   List<ResponseModel> get filteredResponses {
     if (searchQuery.value.isEmpty) {
@@ -23,36 +60,6 @@ class ResponsesController extends AppBaseController {
       return response.email.toLowerCase().contains(query) ||
           response.answerText.toLowerCase().contains(query);
     }).toList();
-  }
-
-  @override
-  Future<void> onInit() async {
-    super.onInit();
-    await loadResponses();
-  }
-
-  Future<void> loadResponses() async {
-    try {
-      isLoading.value = true;
-      final snapshot =
-          await FirebaseFirestore.instance
-              .collection('responses')
-              .orderBy('timestamp', descending: true)
-              .get();
-
-      responses.value =
-          snapshot.docs.map((doc) {
-            return ResponseModel.fromFirestore(doc.data(), doc.id);
-          }).toList();
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to load responses: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } finally {
-      isLoading.value = false;
-    }
   }
 
   void onSearchChanged(String query) {
@@ -91,8 +98,7 @@ class ResponsesController extends AppBaseController {
           .doc(response.id)
           .delete();
       hideLoader();
-      // Reload responses
-      await loadResponses();
+      // Stream will auto-update, no need to reload
       Get.snackbar(
         'Success',
         'Response deleted successfully',

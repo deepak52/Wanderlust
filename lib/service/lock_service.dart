@@ -22,12 +22,10 @@ class LockService extends AppBaseService {
   static const String _lockConfigKey = 'lock_config';
   static const String _lockEnabledKey = 'lock_enabled';
 
-  @override
   void initialize() {
     developer.log('LockService initialize called');
   }
 
-  @override
   void dispose() {
     developer.log('LockService dispose called');
   }
@@ -49,16 +47,18 @@ class LockService extends AppBaseService {
 
   /// Get current lock configuration
   LockConfig getLockConfig() {
+    final enabled = isLockEnabled();
     final json = _prefs.getString(_lockConfigKey);
     if (json.isEmpty) {
-      return LockConfig(enabled: false);
+      return LockConfig(enabled: enabled);
     }
     try {
       final Map<String, dynamic> data = jsonDecode(json);
-      return LockConfig.fromJson(data);
+      final config = LockConfig.fromJson(data);
+      return config.copyWith(enabled: enabled || config.enabled);
     } catch (e) {
       debugPrint('Error parsing lock config: $e');
-      return LockConfig(enabled: false);
+      return LockConfig(enabled: enabled);
     }
   }
 
@@ -75,9 +75,11 @@ class LockService extends AppBaseService {
 
   /// Enable/disable lock
   Future<void> setLockEnabled(bool enabled) async {
+    developer.log('[LOCK_STATE] Toggle changed: enabled=$enabled');
     await _prefs.setBool(_lockEnabledKey, enabled);
     final config = getLockConfig();
     await saveLockConfig(config.copyWith(enabled: enabled));
+    developer.log('[LOCK_STATE] Persisted value=$enabled');
   }
 
   // ==================== BIOMETRIC ====================

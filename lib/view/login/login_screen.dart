@@ -1,511 +1,488 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../controller/login_controller.dart';
-import '../../gen/assets.gen.dart';
-import '../../helper/app_string.dart';
 import '../../helper/core/base/app_base_view.dart';
-import '../../helper/core/theme/color_helper.dart';
-import '../../helper/navigation.dart';
 import '../../helper/route.dart';
-import '../../helper/sizer.dart';
-import '../../service/auth_service.dart';
-import '../../helper/widget/common_widget.dart';
-import '../../helper/widget/animatedexpandcontainer/animated_expand_container.dart';
-import '../../helper/widget/textformfield/textformfield_widget.dart';
+import '../../widgets/splash/wanderlust_wave_painter.dart';
+import '../splash/splash_screen.dart';
 
 class LoginScreen extends AppBaseView<LoginController> {
-  final AuthService _authService = Get.find<AuthService>();
-  LoginScreen({super.key});
-
-  final GlobalKey _userFieldKey = GlobalKey();
-  final GlobalKey _passFieldKey = GlobalKey();
-
-  //static const double headerInset = 130;
-  static final RxBool showHeader = true.obs;
+  const LoginScreen({super.key});
 
   @override
-  Widget buildView() => _buildScaffold();
+  Widget buildView() {
+    final context = Get.context!;
+    final double safeAreaTop = MediaQuery.of(context).padding.top;
+    final double logoTop = safeAreaTop + 16.0;
 
-  Scaffold _buildScaffold() => appScaffold(
-    topSafe: false,
-    bottomSafe: false,
-    resizeToAvoidBottomInset: true,
-    body: appFutureBuilder<void>(
-      () => controller.fetchInitData(),
-      (context, snapshot) => _buildBody(),
-    ),
-  );
+    // Single Source of Truth for Final Logo Height (84.0px)
+    const double logoHeight = kFinalWanderlustLogoHeight;
 
-  Widget _buildBody() {
-    return SizedBox.expand(
-      child: Stack(
+    // Calculated Wave & Content Boundaries (Unchanged position/layout)
+    final double baseWaveY = logoTop + 64.0 + 40.0; // Wave baseline position
+    final double contentTopY = baseWaveY + 36.0; // Content starts strictly BELOW wave boundary
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F2E1E),
+      body: Stack(
         children: [
-          // 1️⃣ Static splash background – never moves
+          // 1️⃣ Full-Screen Landscape Background (splashBg4.png)
           Positioned.fill(
-            child: Image.asset(Assets.images.splashBg1.path, fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/images/splashBg4.png',
+              fit: BoxFit.cover,
+            ),
           ),
 
-          // 2️⃣ Login background (behind everything)
+          // 2️⃣ Organic Wave Painter (Fills dark forest green from baseWaveY down to bottom)
           Positioned.fill(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: FractionallySizedBox(
-                heightFactor: 1.0, // >1 stretches vertically downward
-                widthFactor: 1.0,
+            child: CustomPaint(
+              painter: WanderlustWavePainter(
+                progress: 1.0,
+                color: const Color(0xFF0F2E1E),
+                baseWaveY: baseWaveY,
+              ),
+            ),
+          ),
+
+          // 3️⃣ FIXED LOCKED HEADER LOGO (Single Source of Truth: safeAreaTop + 16.0, height: 84.0px)
+          Positioned(
+            top: logoTop,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: SizedBox(
+                height: logoHeight,
                 child: Image.asset(
-                  Assets.images.loginBg.path,
-                  fit: BoxFit.cover,
+                  'assets/images/wanderlust.png',
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
           ),
 
-          AnimatedExpandContainer(
-            onComplete: () {
-              // trigger fade slightly BEFORE completion visually
-              Future.microtask(() {
-                controller.introAnimDone.value = true;
-              });
-            },
-            delay: const Duration(milliseconds: 400),
-            duration: const Duration(milliseconds: 1800),
-            initialHeight: 0,
-            finalHeight: 400,
-            initialWidth: Get.width,
-            finalWidth: Get.width,
-            alignment: Alignment.topCenter,
-            clipChild: true,
-            child: ClipRect(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: OverflowBox(
-                  minHeight: 0,
-                  maxHeight: double.infinity,
-                  alignment: Alignment.bottomCenter,
-                  child: Obx(
-                    () => AnimatedOpacity(
-                      duration: const Duration(milliseconds: 1300),
-                      opacity: controller.introAnimDone.value ? 0.0 : 1.0,
-                      child: SizedBox(
-                        height: 100, // real height of your text block
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            appText(
-                              "Let's Get Started",
-                              fontSize: 26,
-                              fontWeight: FontWeight.w600,
-                              color: AppColorHelper.primaryTextColor,
+          // 4️⃣ LOGIN CONTENT REGION (Starts cleanly BELOW the wave boundary at contentTopY; scrollable on keyboard pop-up)
+          Positioned(
+            top: contentTopY,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: const SingleChildScrollView(
+              physics: BouncingScrollPhysics(),
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 4,
+                bottom: 24,
+              ),
+              child: LoginScreenBody(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class LoginScreenBody extends StatelessWidget {
+  const LoginScreenBody({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final LoginController controller = Get.isRegistered<LoginController>()
+        ? Get.find<LoginController>()
+        : Get.put(LoginController());
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header Texts (Positioned cleanly below the wavy curve)
+        const Text(
+          'Welcome Back!',
+          textAlign: TextAlign.left,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Log in to continue your adventure',
+          textAlign: TextAlign.left,
+          style: TextStyle(
+            fontSize: 13,
+            color: Color(0xFFB0CFBE),
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Form Fields & Controls (Spaced gracefully down the screen)
+        Form(
+          key: controller.form,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Email or Phone Field
+              const Text(
+                'Email or Phone',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFFD1E3D7),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildInputField(
+                controller: controller.userController,
+                focusNode: controller.userFocusNode,
+                nextFocusNode: controller.passwordFocusNode,
+                hintText: 'Email or Phone',
+                prefixIcon: Icons.mail_outline,
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 18),
+
+              // Password Field
+              const Text(
+                'Password',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFFD1E3D7),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Obx(
+                () => _buildInputField(
+                  controller: controller.passwordController,
+                  focusNode: controller.passwordFocusNode,
+                  hintText: 'Password',
+                  prefixIcon: Icons.lock_outline,
+                  obscureText: controller.rxhidePassword.value,
+                  suffixIcon: controller.rxhidePassword.value
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  onSuffixTap: () => controller.rxhidePassword.value =
+                      !controller.rxhidePassword.value,
+                  onSubmitted: () async {
+                    if (!controller.rxIsLoading.value) {
+                      await controller.signIn();
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Forgot Password Link
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: () {},
+                  child: const Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF9BC85A),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Primary Log In Button
+              Obx(
+                () => SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9BC85A),
+                      foregroundColor: const Color(0xFF0F2E1E),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: controller.rxIsLoading.value
+                        ? null
+                        : () async {
+                            await controller.signIn();
+                          },
+                    child: controller.rxIsLoading.value
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Color(0xFF0F2E1E),
                             ),
-                            height(9),
-                            appText(
-                              "Login to manage and track your business",
-                              textAlign: TextAlign.center,
-                              fontWeight: FontWeight.normal,
-                              fontSize: 13,
-                              color: AppColorHelper.primaryTextColor,
+                          )
+                        : const Text(
+                            'Log In',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F2E1E),
                             ),
-                            appText(
-                              "journey",
-                              textAlign: TextAlign.center,
-                              fontWeight: FontWeight.normal,
-                              fontSize: 13,
-                              color: AppColorHelper.primaryTextColor,
-                            ),
-                          ],
-                        ),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 26),
+
+              // Or Continue With Divider
+              Row(
+                children: [
+                  Expanded(
+                    child: Divider(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      thickness: 1,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'or continue with',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.55),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
-          ),
-
-          Obx(() {
-            return AnimatedOpacity(
-              duration: const Duration(
-                milliseconds: 2000,
-              ), // controls how slow it disappears
-              curve: Curves.easeOut,
-              opacity: controller.isRibbonDone.value ? 0.0 : 1.0,
-              child: IgnorePointer(
-                ignoring: controller.isRibbonDone.value,
-                child: AnimatedExpandContainer(
-                  onComplete: () => controller.isRibbonDone.value = true,
-                  delay: const Duration(milliseconds: 400),
-                  duration: const Duration(milliseconds: 2000),
-                  initialHeight: Get.height,
-                  finalHeight: 240,
-                  initialWidth: Get.width,
-                  finalWidth: Get.width * 0.40,
-                  alignment: Alignment.topCenter,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
-                    ),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.asset(
-                          Assets.images.splashBg4.path,
-                          fit: BoxFit.cover,
-                        ),
-                        Center(
-                          child: AnimatedAlign(
-                            duration: const Duration(milliseconds: 2700),
-                            curve: Curves.easeOutCubic,
-                            alignment:
-                                controller.moveLogo.value
-                                    ? const Alignment(
-                                      0,
-                                      0.535,
-                                    ) // final header alignment
-                                    : const Alignment(0, 0), // splash center
-                            child: AnimatedScale(
-                              duration: const Duration(milliseconds: 1000),
-                              curve: Curves.easeInOut,
-                              scale: controller.moveLogo.value ? 1.5 : 1.0,
-                              child: FractionallySizedBox(
-                                widthFactor:
-                                    0.40, // ✅ splash logo size (LOCKED)
-                                child: Image.asset(
-                                  Assets.images.muziris.path,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-          // 4️⃣ Login content – slides up in sync
-          AnimatedExpandContainer(
-            delay: const Duration(milliseconds: 400),
-            duration: const Duration(milliseconds: 1800),
-            initialHeight: 0,
-            finalHeight: Get.height,
-            initialWidth: Get.width,
-            finalWidth: Get.width,
-            alignment: Alignment.bottomCenter,
-            child: GestureDetector(
-              onTap: () => FocusScope.of(Get.context!).unfocus(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
                   Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        final isKeyboardOpen =
-                            MediaQuery.of(context).viewInsets.bottom > 0;
-
-                        final content = Column(
-                          children: [
-                            Obx(
-                              () => AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 800),
-                                switchInCurve: Curves.easeOut,
-                                switchOutCurve: Curves.easeIn,
-                                transitionBuilder: (child, animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  );
-                                },
-                                child:
-                                    controller.isRibbonDone.value
-                                        ? SizedBox(
-                                          key: const ValueKey('header'),
-                                          height: 240,
-                                          width: Get.width * 0.40,
-                                          child:
-                                              LoginScreen.buildHeaderSurface(),
-                                        )
-                                        : SizedBox(
-                                          key: const ValueKey('placeholder'),
-                                          height: 240, // 👈 HOLD SPACE
-                                          width: Get.width * 0.40,
-                                        ),
-                              ),
-                            ),
-                            _mobileView(),
-                          ],
-                        );
-
-                        return SingleChildScrollView(
-                          controller: controller.scrollController,
-                          physics:
-                              isKeyboardOpen
-                                  ? const BouncingScrollPhysics() // keyboard open → allow scroll
-                                  : const NeverScrollableScrollPhysics(), // keyboard closed → lock
-                          child: content,
-                        );
-                      },
+                    child: Divider(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      thickness: 1,
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+              const SizedBox(height: 22),
 
-  Padding _mobileView() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 45),
-      child: Obx(() {
-        final rawInset = MediaQuery.of(Get.context!).viewInsets.bottom;
-        final isKeyboardOpen = rawInset > 0;
-        final keyboardInset =
-            isKeyboardOpen ? rawInset.clamp(250, 320).toDouble() : 0.0;
-
-        if (isKeyboardOpen && !controller.didAutoScroll.value) {
-          controller.didAutoScroll.value = true;
-
-          // Wait for keyboard + ribbon layout to settle
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (controller.scrollController.hasClients) {
-                controller.scrollController.animateTo(
-                  95,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                );
-              }
-            });
-          });
-        }
-
-        if (!isKeyboardOpen && controller.didAutoScroll.value) {
-          controller.didAutoScroll.value = false;
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (controller.scrollController.hasClients) {
-              controller.scrollController.animateTo(
-                0.0,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-              );
-            }
-          });
-        }
-
-        return AnimatedPadding(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(
-            top: 20,
-            bottom: isKeyboardOpen ? keyboardInset : 20,
-          ),
-          child: Column(
-            mainAxisAlignment:
-                isKeyboardOpen
-                    ? MainAxisAlignment.start
-                    : MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              height(isKeyboardOpen ? 10 : 40),
-              Obx(
-                () => AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: controller.introAnimDone.value ? 1.0 : 0.0,
-                  child: Column(
-                    children: [
-                      appText(
-                        "Let's Get Started",
-                        fontSize: 26,
-                        fontWeight: FontWeight.w600,
-                        color: AppColorHelper.primaryTextColor,
-                      ),
-                      height(isKeyboardOpen ? 6 : 9),
-                      appText(
-                        "Login to manage and track your business",
-                        textAlign: TextAlign.center,
-                        fontSize: 13,
-                        fontWeight: FontWeight.normal,
-                        color: AppColorHelper.primaryTextColor,
-                      ),
-                      appText(
-                        "journey",
-                        textAlign: TextAlign.center,
-                        fontSize: 13,
-                        fontWeight: FontWeight.normal,
-                        color: AppColorHelper.primaryTextColor,
-                      ),
-                    ],
+              // Social Login Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildSocialSquareButton(
+                    child: const GoogleLogoIcon(size: 20),
+                    onTap: () {},
                   ),
-                ),
+                  const SizedBox(width: 14),
+                  _buildSocialSquareButton(
+                    child: const Icon(
+                      Icons.apple,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    onTap: () {},
+                  ),
+                  const SizedBox(width: 14),
+                  _buildSocialSquareButton(
+                    child: const Icon(
+                      Icons.smartphone_outlined,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    onTap: () {},
+                  ),
+                ],
               ),
-              height(isKeyboardOpen ? 20 : 91),
-              Form(
-                key: controller.form,
-                child: Column(
-                  children: [
-                    _buildUsernameField(),
-                    height(isKeyboardOpen ? 12 : 22),
-                    _buildPasswordField(),
-                    height(isKeyboardOpen ? 20 : (Platform.isIOS ? 50 : 45)),
-                    buttonContainer(
-                      radius: 10,
-                      height: 68,
-                      color: AppColorHelper.primaryColor,
-                      controller.rxIsLoading.value
-                          ? buttonLoader()
-                          : appText(
-                            login.tr,
-                            fontSize: 18,
-                            color: AppColorHelper.textColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                      onPressed: () async {
-                        if (controller.rxIsLoading.value) return;
+              const SizedBox(height: 28),
 
-                        await controller.signIn();
-                      },
+              // Sign Up Prompt
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Don't have an account? ",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.7),
                     ),
-                    height(isKeyboardOpen ? 8 : 18),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        GestureDetector(
-                          onTap: () async {},
-                          child: appText(
-                            forgetPassworddialogue.tr,
-                            fontSize: 14,
-                            color: AppColorHelper.primaryTextColor,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => Get.toNamed(registerPageRoute),
-                          child: appText(
-                            "Register",
-                            fontSize: 14,
-                            color: AppColorHelper.primaryColor,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ],
+                  ),
+                  GestureDetector(
+                    onTap: () => Get.toNamed(registerPageRoute),
+                    child: const Text(
+                      'Sign Up',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF9BC85A),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 12),
             ],
           ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildUsernameField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: appText(
-            username,
-            fontSize: 13,
-            fontWeight: FontWeight.normal,
-            color: AppColorHelper.primaryTextColor,
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColorHelper.cardColor,
-            border: Border.all(
-              color: AppColorHelper.primaryTextColor.withValues(alpha: 0.2),
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: TextFormWidget(
-            controller: controller.userController,
-            focusNode: controller.userFocusNode,
-            nextFocusNode: controller.passwordFocusNode,
-            height: 40,
-            label: null,
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildPasswordField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: appText(
-            password.tr,
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    FocusNode? nextFocusNode,
+    required String hintText,
+    required IconData prefixIcon,
+    bool obscureText = false,
+    IconData? suffixIcon,
+    VoidCallback? onSuffixTap,
+    TextInputType keyboardType = TextInputType.text,
+    VoidCallback? onSubmitted,
+  }) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: const Color(0xFF143825),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        textInputAction:
+            nextFocusNode != null ? TextInputAction.next : TextInputAction.done,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+        ),
+        cursorColor: const Color(0xFF9BC85A),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          hintText: hintText,
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.38),
             fontSize: 13,
-            fontWeight: FontWeight.normal,
-            color: AppColorHelper.primaryTextColor,
           ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          prefixIcon: Icon(
+            prefixIcon,
+            color: Colors.white.withValues(alpha: 0.5),
+            size: 18,
+          ),
+          suffixIcon: suffixIcon != null
+              ? IconButton(
+                  icon: Icon(
+                    suffixIcon,
+                    color: Colors.white.withValues(alpha: 0.5),
+                    size: 18,
+                  ),
+                  onPressed: onSuffixTap,
+                  splashRadius: 18,
+                )
+              : null,
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColorHelper.cardColor,
-            border: Border.all(
-              color:
-                  controller.isPasswordValid.value
-                      ? AppColorHelper.primaryTextColor.withValues(alpha: 0.2)
-                      : AppColorHelper.errorBorderColor,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: TextFormWidget(
-            controller: controller.passwordController,
-            focusNode: controller.passwordFocusNode,
-            height: 40,
-            label: password.tr,
-            textColor: AppColorHelper.primaryTextColor,
-            //  rxObscureText: controller.rxShowPassword.map((v) => !v).obs,
-            rxObscureText: controller.rxhidePassword,
-            enableObscureToggle: true,
-          ),
-        ),
-      ],
-    );
-  }
-
-  static Widget buildHeaderSurface() {
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(20),
-        bottomRight: Radius.circular(20),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background exactly like the ribbon's final frame
-          Image.asset(Assets.images.muziris.path, fit: BoxFit.cover),
-
-          // Final-position logo (no animation here)
-          Align(
-            alignment: const Alignment(0, 0.56), // same as ribbon end
-            child: FractionallySizedBox(
-              widthFactor: 0.60, // same visual size as ribbon end
-              child: Image.asset(
-                Assets.images.muziris.path,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-        ],
+        onSubmitted: (_) {
+          if (nextFocusNode != null) {
+            nextFocusNode.requestFocus();
+          } else if (onSubmitted != null) {
+            onSubmitted();
+          }
+        },
       ),
     );
   }
+
+  Widget _buildSocialSquareButton({
+    required Widget child,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: const Color(0xFF143825),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.15),
+            width: 1,
+          ),
+        ),
+        child: Center(child: child),
+      ),
+    );
+  }
+}
+
+class GoogleLogoIcon extends StatelessWidget {
+  final double size;
+  const GoogleLogoIcon({super.key, this.size = 20});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _GoogleLogoPainter(),
+      ),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double cx = size.width / 2;
+    final double cy = size.height / 2;
+    final double outerR = size.width * 0.48;
+    final double innerR = size.width * 0.24;
+    final Rect rect = Rect.fromCircle(
+      center: Offset(cx, cy),
+      radius: (outerR + innerR) / 2,
+    );
+    final double strokeWidth = outerR - innerR;
+
+    final Paint p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    // Red (top)
+    p.color = const Color(0xFFEA4335);
+    canvas.drawArc(rect, -0.6, -1.8, false, p);
+
+    // Yellow (left)
+    p.color = const Color(0xFFFBBC05);
+    canvas.drawArc(rect, -2.4, -1.2, false, p);
+
+    // Green (bottom)
+    p.color = const Color(0xFF34A853);
+    canvas.drawArc(rect, 0.6, 1.8, false, p);
+
+    // Blue (right arc)
+    p.color = const Color(0xFF4285F4);
+    canvas.drawArc(rect, -0.6, 1.2, false, p);
+
+    // Blue horizontal bar
+    final Paint barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(
+      Rect.fromLTRB(cx, cy - strokeWidth / 2, cx + outerR, cy + strokeWidth / 2),
+      barPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

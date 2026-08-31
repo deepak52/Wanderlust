@@ -27,7 +27,19 @@ class LockScreen extends AppBaseView<LockController> {
       // If unlocked, navigate away
       if (controller.unlocked.value) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          controller.navigateAfterUnlock(arguments);
+          final rawArgs = Get.arguments;
+          final effectiveArgs =
+              arguments ??
+              (rawArgs is LockArguments
+                  ? rawArgs
+                  : (rawArgs is Map<String, dynamic>
+                      ? LockArguments(
+                          returnRoute: rawArgs['returnRoute'] as String?,
+                          returnArgs:
+                              rawArgs['returnArgs'] as Map<String, dynamic>?,
+                        )
+                      : null));
+          controller.navigateAfterUnlock(effectiveArgs);
         });
         return _lockView(); // Show lock briefly while navigating
       }

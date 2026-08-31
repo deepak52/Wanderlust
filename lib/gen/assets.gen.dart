@@ -43,8 +43,8 @@ class $AssetsImagesGen {
   /// File path: assets/images/loginBg.png
   AssetGenImage get loginBg => const AssetGenImage('assets/images/loginBg.png');
 
-  /// File path: assets/images/muziris.png
-  AssetGenImage get muziris => const AssetGenImage('assets/images/muziris.png');
+  /// File path: assets/images/wanderlust.png
+  AssetGenImage get muziris => const AssetGenImage('assets/images/wanderlust.png');
 
   /// File path: assets/images/muziriswhite.png
   AssetGenImage get muziriswhite =>

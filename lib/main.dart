@@ -10,6 +10,9 @@ import 'helper/http_service.dart';
 import 'helper/core/base/app_base_service.dart';
 import 'helper/core/environment/env.dart';
 import 'helper/enum.dart';
+import 'service/lock_service.dart';
+import 'controller/lock_controller.dart';
+import 'widgets/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,6 +29,8 @@ void main() async {
   await Get.find<MyApplication>().setVersionNumber();
   Get.put(HttpService());
   Get.put(AppBaseService());
+  Get.put(LockService());
+  Get.put(LockController(), permanent: true);
 
   // Set device type and screen orientation (matching Agro-Prod AppInit)
   _setDeviceType();
@@ -55,7 +60,6 @@ void _setUpScreenOrientation() {
         ],
   );
 }
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -68,6 +72,9 @@ class MyApp extends StatelessWidget {
       getPages: AppRoutes.pages,
       initialBinding: SplashBinding(),
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return AuthGate(child: child ?? const SizedBox.shrink());
+      },
     );
   }
 }

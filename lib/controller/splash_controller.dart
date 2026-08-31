@@ -8,7 +8,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import '../helper/app_message.dart';
 import '../helper/app_string.dart';
 import '../helper/core/base/app_base_controller.dart';
-import '../helper/shared_pref.dart';
 import '../helper/route.dart';
 import '../model/task_model.dart';
 import '../service/lock_service.dart';
@@ -18,69 +17,125 @@ import '../helper/single_app.dart';
 
 class SplashController extends AppBaseController
     with GetSingleTickerProviderStateMixin {
-  SharedPreferenceHelper? _preference;
   var rxUpdateRequired = false.obs;
 
-  // animation
-  late AnimationController _textController;
-  late Animation<Offset> logoSlide;
-  RxBool rxShowSecondImage = false.obs;
-
-  late Animation<double> logoFade;
+  // Master Animation Controller for 6-Stage Wanderlust Sequence
+  late AnimationController mainAnimController;
+  late Animation<double> bgFade;
+  late Animation<double> logoEmergenceFade;
+  late Animation<double> logoEmergenceScale;
+  late Animation<double> logoMoveUp;
+  late Animation<double> logoScaleDown;
+  late Animation<double> waveProgress;
+  late Animation<double> loginContentFade;
+  late Animation<double> loginContentSlide;
 
   // tasks
   RxList<TaskResponse> rxTasksResponse = <TaskResponse>[].obs;
 
+  // Post-lock return route (admin vs user)
+  RxString rxPostLockRoute = welcomePageRoute.obs;
+
   @override
   Future<void> onInit() async {
     super.onInit();
-    initTextAnimation();
-    _textController.forward();
+    initMasterAnimation();
+    mainAnimController.forward();
 
     // Initialize messaging services
     await _initializeMessagingServices();
+  }
 
-    // Hold the logo at center for ~1 second
-    await Future.delayed(const Duration(seconds: 1));
+  void initMasterAnimation() {
+    mainAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 5500),
+    );
+
+    // Stage 1: Background Fade In (0.00 - 0.20)
+    bgFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.00, 0.20, curve: Curves.easeIn),
+      ),
+    );
+
+    // Stage 2: Logo Emerges (0.18 - 0.42)
+    logoEmergenceFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.18, 0.42, curve: Curves.easeOut),
+      ),
+    );
+
+    logoEmergenceScale = Tween<double>(begin: 0.80, end: 1.00).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.18, 0.42, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    // Stage 4: Logo Moves Up & Scales Down (0.45 - 0.78)
+    logoMoveUp = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.45, 0.78, curve: Curves.easeInOutCubic),
+      ),
+    );
+
+    logoScaleDown = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.45, 0.78, curve: Curves.easeInOutCubic),
+      ),
+    );
+
+    // Stage 4: Organic Wave Transition (0.50 - 0.88)
+    waveProgress = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.50, 0.88, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    // Stage 5: Login Content Staggered Reveal (0.75 - 0.98)
+    loginContentFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.75, 0.98, curve: Curves.easeOut),
+      ),
+    );
+
+    loginContentSlide = Tween<double>(begin: 0.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.75, 0.98, curve: Curves.easeOutCubic),
+      ),
+    );
   }
 
   /// Initialize messaging infrastructure (FCM, missed messages, sound player, etc.)
   Future<void> _initializeMessagingServices() async {
     try {
-      // Initialize Firebase Messaging (FCM + local notifications)
       final messagingService = Get.find<FirebaseMessagingService>();
       await messagingService.initialize();
 
-      // Start missed message listener (connectivity monitoring)
       final missedMessageService = Get.find<MissedMessageService>();
       missedMessageService.startListening();
-
-      appLog('📦 Messaging services initialized successfully');
     } catch (e) {
       misErrorMessage('❌ Failed to initialize messaging services: $e');
     }
   }
 
   /// Checks Firebase auth state and user role, returns route to navigate to.
-  /// Returns:
-  /// - loginPageRoute - if no user logged in
-  /// - lockPageRoute - if user logged in and app lock is enabled
-  /// - welcomePageRoute - if regular user logged in and lock disabled
-  /// - adminHomePageRoute - if admin user logged in and lock disabled
   Future<String> checkAuthAndNavigate() async {
-    // Ensure minimum splash duration
-    await Future.delayed(const Duration(milliseconds: 2500));
+    // Hold briefly until Stage 3 logo display before deciding navigation
+    await Future.delayed(const Duration(milliseconds: 3800));
 
     try {
-      // Check current Firebase user (not just local prefs)
       final User? firebaseUser = FirebaseAuth.instance.currentUser;
 
-      developer.log('=== SPLASH AUTH CHECK DEBUG ===');
-      developer.log('Firebase User: ${firebaseUser?.uid ?? "null"}');
-      developer.log('Firebase User Email: ${firebaseUser?.email ?? "null"}');
-
       if (firebaseUser == null) {
-        // No Firebase user - check remember me from local prefs as fallback
         var preference = myApplication.preferenceHelper;
         if (preference != null) {
           final rememberMe = preference.getBool(rememberMeKey);
@@ -88,38 +143,22 @@ class SplashController extends AppBaseController
           final token = preference.getString(accessTokenKey);
 
           if (rememberMe && userId != "-1" && token.isNotEmpty) {
-            // Has remember me credentials but no Firebase user
-            // This could happen if token expired - force login
             await _clearStalePrefs();
           }
         }
-        developer.log('No Firebase user -> returning loginPageRoute');
         return loginPageRoute;
       }
 
-      // Firebase user exists - fetch role from Firestore
-      final userDoc =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(firebaseUser.uid)
-              .get();
-
-      developer.log('User doc exists: ${userDoc.exists}');
-      if (userDoc.exists) {
-        final userData = userDoc.data() ?? {};
-        developer.log('User doc data: $userData');
-        developer.log('All fields: ${userData.keys.toList()}');
-      }
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .get();
 
       if (!userDoc.exists) {
-        // User document doesn't exist - treat as regular user
-        developer.log('No user doc -> returning _getLockOrWelcomeRoute()');
         return _getLockOrWelcomeRoute();
       }
 
       final userData = userDoc.data() ?? {};
-
-      // Check for admin field with multiple possible names (case-insensitive)
       bool isAdmin = false;
       final possibleAdminFields = [
         'isAdmin',
@@ -131,60 +170,60 @@ class SplashController extends AppBaseController
         'role',
         'Role',
         'userType',
-        'UserType',
-        'user_role',
-        'userRole',
       ];
       for (final field in possibleAdminFields) {
         final value = userData[field];
-        developer.log(
-          'Checking field "$field": $value (type: ${value.runtimeType})',
-        );
         if (value == true ||
             value == 'true' ||
             value == 'admin' ||
             value == 'ADMIN') {
           isAdmin = true;
-          developer.log('Found admin=true via field: $field');
           break;
         }
       }
 
-      developer.log('Computed isAdmin: $isAdmin');
-
-      // Save FCM token for this user
       await _saveFcmToken(firebaseUser.uid);
 
-      // If admin, check lock before going to admin home
       if (isAdmin) {
-        developer.log('isAdmin=true -> returning _getLockOrAdminRoute()');
         return _getLockOrAdminRoute();
       }
 
-      // Regular user - check lock before going to welcome
-      developer.log('isAdmin=false -> returning _getLockOrWelcomeRoute()');
       return _getLockOrWelcomeRoute();
     } catch (e) {
-      // On any error, fall back to login
-      developer.log('Auth check error: $e');
+      final User? firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        return _getLockOrWelcomeRoute();
+      }
       return loginPageRoute;
     }
   }
 
-  /// Check if app lock is enabled and return appropriate route for regular user
   String _getLockOrWelcomeRoute() {
-    final lockService = Get.find<LockService>();
-    if (lockService.isLockEnabled()) {
-      return lockPageRoute;
+    rxPostLockRoute.value = welcomePageRoute;
+    try {
+      final lockService = Get.isRegistered<LockService>()
+          ? Get.find<LockService>()
+          : Get.put(LockService());
+      if (lockService.isLockEnabled()) {
+        return lockPageRoute;
+      }
+    } catch (e) {
+      developer.log('Error checking lock status: $e');
     }
     return welcomePageRoute;
   }
 
-  /// Check if app lock is enabled and return appropriate route for admin
   String _getLockOrAdminRoute() {
-    final lockService = Get.find<LockService>();
-    if (lockService.isLockEnabled()) {
-      return lockPageRoute;
+    rxPostLockRoute.value = adminHomePageRoute;
+    try {
+      final lockService = Get.isRegistered<LockService>()
+          ? Get.find<LockService>()
+          : Get.put(LockService());
+      if (lockService.isLockEnabled()) {
+        return lockPageRoute;
+      }
+    } catch (e) {
+      developer.log('Error checking lock status: $e');
     }
     return adminHomePageRoute;
   }
@@ -213,46 +252,9 @@ class SplashController extends AppBaseController
     }
   }
 
-  Future<void> resetPref() async {
-    _preference?.remove(accessTokenKey);
-    _preference?.remove(loginPasswordKey);
-  }
-
-  void initTextAnimation() {
-    _textController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    );
-
-    logoSlide = TweenSequence<Offset>([
-      TweenSequenceItem(
-        tween: Tween(
-          begin: const Offset(0, 1.0),
-          end: const Offset(0, 0),
-        ).chain(CurveTween(curve: Curves.easeOutCubic)),
-        weight: 70,
-      ),
-      TweenSequenceItem(tween: ConstantTween(const Offset(0, 0)), weight: 10),
-    ]).animate(_textController);
-
-    logoFade = TweenSequence<double>([
-      // stay invisible for a short moment
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 20),
-
-      // smooth fade-in
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 0.0,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 80,
-      ),
-    ]).animate(_textController);
-  }
-
   @override
   void onClose() {
-    _textController.dispose();
+    mainAnimController.dispose();
     super.onClose();
   }
 }

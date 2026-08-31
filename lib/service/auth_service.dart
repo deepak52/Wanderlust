@@ -89,7 +89,15 @@ class AuthService extends AppBaseService {
 
       developer.log('Computed isAdmin: $isAdmin');
 
-      // Save FCM token
+      // Save user credentials and FCM token
+      final idToken = await user.getIdToken() ?? '';
+      await _saveUserCredentials(
+        idToken,
+        user.uid,
+        user.email ?? email,
+        isAdmin,
+        true,
+      );
       await _saveFcmToken(user.uid);
 
       return isAdmin;
@@ -289,7 +297,7 @@ class AuthService extends AppBaseService {
       final isAdmin =
           myApplication.preferenceHelper!.getBool(isAdminKey) ?? false;
 
-      if (userId == null || email == null) return null;
+      if (email == null) return null;
 
       // Verify token is still valid by getting current user
       final currentUser = await getCurrentUser();
@@ -475,7 +483,7 @@ class AuthService extends AppBaseService {
   Future<bool> changePassword(ChangePasswordRequest request) async {
     try {
       final token = myApplication.preferenceHelper!.getString(accessTokenKey);
-      if (token == null || token.isEmpty) {
+      if (token.isEmpty) {
         throw Exception('No access token available');
       }
 

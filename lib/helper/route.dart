@@ -112,13 +112,18 @@ class AppRoutes {
     GetPage(
       name: lock,
       page: () {
-        final args = Get.arguments as Map<String, dynamic>? ?? {};
-        return LockScreen(
-          arguments: LockArguments(
-            returnRoute: args['returnRoute'] as String?,
-            returnArgs: args['returnArgs'] as Map<String, dynamic>?,
-          ),
-        );
+        final rawArgs = Get.arguments;
+        if (rawArgs is LockArguments) {
+          return LockScreen(arguments: rawArgs);
+        } else if (rawArgs is Map<String, dynamic>) {
+          return LockScreen(
+            arguments: LockArguments(
+              returnRoute: rawArgs['returnRoute'] as String?,
+              returnArgs: rawArgs['returnArgs'] as Map<String, dynamic>?,
+            ),
+          );
+        }
+        return const LockScreen();
       },
       binding: LockBinding(),
       transition: Transition.fadeIn,

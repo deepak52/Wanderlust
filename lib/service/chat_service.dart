@@ -19,13 +19,11 @@ class ChatService extends AppBaseService {
   CollectionReference get _chatsCollection => _firestore.collection('chats');
   CollectionReference get _usersCollection => _firestore.collection('users');
 
-  @override
   void initialize() {
     // Initialize ChatService-specific resources
     developer.log('ChatService initialize called');
   }
 
-  @override
   void dispose() {
     // Clean up ChatService-specific resources
     developer.log('ChatService dispose called');
@@ -115,6 +113,7 @@ class ChatService extends AppBaseService {
     String? replyToText,
     String? replyToSenderId,
   }) async {
+    developer.log('🔵 ChatService.sendMessage: START chatId=$chatId, text=$text');
     if (!isAuthenticated) throw Exception('User not authenticated');
     if (text.trim().isEmpty) throw Exception('Message cannot be empty');
 
@@ -126,6 +125,14 @@ class ChatService extends AppBaseService {
     // Get other participant ID
     final otherUserId = ChatUtils.getOtherParticipantId(chatId, currentUser);
     if (otherUserId == null) throw Exception('Invalid chat ID');
+
+    developer.log('🔵 ChatService.sendMessage: currentUser=$currentUser, otherUserId=$otherUserId, messageId=$messageId');
+
+    // STAGE 2: Before sendMessage - print currentUserId, receiverId, chatId, messageId
+    developer.log('🟠 STAGE2 ChatService.sendMessage: currentUserId=$currentUser, receiverId=$otherUserId, chatId=$chatId, messageId=$messageId');
+    
+    // CHAT_ID_DEBUG: Print chatId used in sendMessage
+    developer.log('🔍 CHAT_ID_DEBUG sendMessage: chatId=$chatId');
 
     // Create message
     final message = ChatMessage(
@@ -153,6 +160,7 @@ class ChatService extends AppBaseService {
         .doc(chatId)
         .collection('messages')
         .doc(messageId);
+    developer.log('🔵 ChatService.sendMessage: Writing to path=chats/$chatId/messages/$messageId');
     batch.set(messageRef, message.toJson());
 
     // Update chat room metadata
@@ -164,7 +172,17 @@ class ChatService extends AppBaseService {
       'UpdatedAt': Timestamp.fromDate(now),
     });
 
+    developer.log('🔵 ChatService.sendMessage: Committing batch...');
     await batch.commit();
+    developer.log('✅ ChatService.sendMessage: Batch committed successfully, messageId=$messageId');
+
+    // STAGE 3: Immediately after batch.commit - read the same document back
+    developer.log('🟠 STAGE3 ChatService.sendMessage: Reading back document...');
+    final docSnap = await messageRef.get();
+    developer.log('🟠 STAGE3 ChatService.sendMessage: Document exists=${docSnap.exists}, path=${docSnap.reference.path}');
+    if (docSnap.exists) {
+      developer.log('🟠 STAGE3 ChatService.sendMessage: Document data=${docSnap.data()}');
+    }
 
     return messageId;
   }
@@ -172,17 +190,28 @@ class ChatService extends AppBaseService {
   /// Streams messages for a chat (real-time)
   /// Ordered by timestamp ascending (oldest first)
   Stream<List<ChatMessage>> listenToMessages(String chatId) {
+    developer.log('🟢 ChatService.listenToMessages: START chatId=$chatId');
+    developer.log('🟢 ChatService.listenToMessages: Query path=chats/$chatId/messages, orderBy(Timestamp asc)');
+    
+    // CHAT_ID_DEBUG: Print chatId used in listenToMessages
+    developer.log('🔍 CHAT_ID_DEBUG listenToMessages: chatId=$chatId');
     return _chatsCollection
         .doc(chatId)
         .collection('messages')
-        .where('Deleted', isEqualTo: false)
         .orderBy('Timestamp', descending: false)
         .snapshots()
         .map(
-          (snapshot) =>
-              snapshot.docs
+          (snapshot) {
+            developer.log('🟢 ChatService.listenToMessages: Snapshot received - docs count=${snapshot.docs.length}');
+            for (final doc in snapshot.docs) {
+              developer.log('🟢 ChatService.listenToMessages: Doc id=${doc.id}, data=${doc.data()}');
+            }
+            final messages = snapshot.docs
                   .map((doc) => ChatMessage.fromJson(doc.data()))
-                  .toList(),
+                  .toList();
+            developer.log('🟢 ChatService.listenToMessages: Parsed ${messages.length} messages');
+            return messages;
+          },
         );
   }
 
@@ -196,7 +225,6 @@ class ChatService extends AppBaseService {
     Query query = _chatsCollection
         .doc(chatId)
         .collection('messages')
-        .where('Deleted', isEqualTo: false)
         .orderBy('Timestamp', descending: true)
         .limit(limit);
 

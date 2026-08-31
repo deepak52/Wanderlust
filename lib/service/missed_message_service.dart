@@ -22,12 +22,10 @@ class MissedMessageService extends AppBaseService {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _periodicTimer;
 
-  @override
   void initialize() {
     developer.log('MissedMessageService initialize called');
   }
 
-  @override
   void dispose() {
     developer.log('MissedMessageService dispose called');
   }
@@ -110,14 +108,14 @@ class MissedMessageService extends AppBaseService {
                 .collection('chats')
                 .doc(chatId)
                 .collection('messages')
-                .where('receiverId', isEqualTo: currentUserId)
-                .where('delivered', isEqualTo: false)
+                .where('ReceiverId', isEqualTo: currentUserId)
+                .where('Delivered', isEqualTo: false)
                 .get();
 
         for (final msgDoc in messagesSnapshot.docs) {
           await msgDoc.reference.update({
-            'delivered': true,
-            'deliveredAt': FieldValue.serverTimestamp(),
+            'Delivered': true,
+            'DeliveredAt': FieldValue.serverTimestamp(),
           });
           misInfoMessage(
             '[MissedMessageService] Marked message ${msgDoc.id} in chat $chatId as delivered',

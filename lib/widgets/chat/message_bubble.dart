@@ -14,6 +14,7 @@ class MessageBubble extends StatelessWidget {
   final Widget? statusIcon;
   final VoidCallback? onDelete;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final VoidCallback? onEdit;
   final String? replyToText;
   final bool isReplyFromMe;
@@ -28,6 +29,7 @@ class MessageBubble extends StatelessWidget {
     this.statusIcon,
     this.onDelete,
     this.onTap,
+    this.onLongPress,
     this.onEdit,
     this.replyToText,
     this.isReplyFromMe = false,
@@ -143,9 +145,10 @@ class MessageBubble extends StatelessWidget {
       ),
     );
 
-    // Wrap with GestureDetector for tap handling
+    // Wrap with GestureDetector for tap and long press handling
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress ?? onTap,
       child: Row(
         mainAxisAlignment:
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,

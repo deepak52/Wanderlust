@@ -28,8 +28,8 @@ class ChatSoundPlayer extends GetxService {
   /// Play the receive sound
   Future<void> playReceiveSound() async {
     try {
-      await _receivePlayer.play(AssetSource('sounds/receive.mp3'));
-      misInfoMessage('≡ƒöè ChatSoundPlayer: Receive sound played');
+      await _receivePlayer.play(AssetSource('sounds/recive.mp3'));
+      misInfoMessage('ChatSoundPlayer: Receive sound played');
     } catch (e) {
       misErrorMessage('≡ƒöè ChatSoundPlayer: Receive sound error: $e');
     }

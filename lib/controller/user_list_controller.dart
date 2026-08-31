@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
+import 'dart:developer' as developer;
 import '../helper/core/base/app_base_controller.dart';
 import '../service/auth_service.dart';
 import '../service/chat_service.dart';
@@ -14,31 +15,40 @@ class UserListController extends AppBaseController {
   final RxBool isLoading = true.obs;
   final RxString searchQuery = ''.obs;
 
+  Stream<QuerySnapshot>? _userStream;
+
   @override
   Future<void> onInit() async {
     super.onInit();
-    await loadUsers();
+    _initializeUserStream();
   }
 
-  Future<void> loadUsers() async {
-    try {
-      isLoading.value = true;
-      final snapshot =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .where('isAdmin', isEqualTo: false)
-              .get();
+  void _initializeUserStream() {
+    _userStream = FirebaseFirestore.instance
+        .collection('users')
+        .where('isAdmin', isEqualTo: false)
+        .snapshots();
 
-      users.assignAll(snapshot.docs);
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to load users: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } finally {
-      isLoading.value = false;
-    }
+    _userStream!.listen(
+      (snapshot) {
+        final docs = snapshot.docs
+            .where((doc) => doc.data() != null)
+            .map((doc) => doc as QueryDocumentSnapshot<Map<String, dynamic>>)
+            .toList();
+        users.assignAll(docs);
+        isLoading.value = false;
+      },
+      onError: (error) {
+        isLoading.value = false;
+        Get.snackbar('Error', 'Failed to load users: $error');
+      },
+    );
+  }
+
+  @override
+  void onClose() {
+    _userStream = null;
+    super.onClose();
   }
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> get filteredUsers {
@@ -71,6 +81,9 @@ class UserListController extends AppBaseController {
       final userId = user.id;
       final chatId = await _chatService.getOrCreateChatRoom(userId);
       hideLoader();
+
+      // STAGE 1: Print exact chatId used by UserListController
+      developer.log('🟣 STAGE1 UserListController: chatId=$chatId, currentUserId=${currentUser.uid}, targetUserId=$userId, isAdmin=true');
 
       Get.toNamed('/chat', arguments: {'chatId': chatId, 'isAdmin': true});
     } catch (e) {
