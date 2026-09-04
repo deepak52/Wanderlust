@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:charset_converter/charset_converter.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +10,6 @@ import '../helper/app_string.dart';
 import '../helper/core/base/app_base_controller.dart';
 import '../helper/core/environment/env.dart';
 import '../helper/deviceInfo.dart';
-import '../helper/enum.dart';
 import '../helper/route.dart';
 import '../helper/single_app.dart';
 import '../model/login_model.dart';
@@ -20,10 +17,6 @@ import '../service/auth_service.dart';
 
 class LoginController extends AppBaseController {
   final AuthService _authService = Get.find<AuthService>();
-
-  // Loading state
-  @override
-  RxBool rxIsLoading = false.obs;
 
   // fields
   TextEditingController userController = TextEditingController();
@@ -129,8 +122,8 @@ class LoginController extends AppBaseController {
     if (preference != null) {
       await preference.setString(deviceIdKey, deviceId ?? '');
       if (rxRememberMe.value) {
-        userController.text = preference.getString(emailKey) ?? '';
-        passwordController.text = preference.getString(loginPasswordKey) ?? '';
+        userController.text = preference.getString(emailKey);
+        passwordController.text = preference.getString(loginPasswordKey);
       }
     }
   }
@@ -212,120 +205,6 @@ class LoginController extends AppBaseController {
       "windows-1252",
       Uint8List.fromList(bytes), // ✅ FIX HERE
     );
-  }
-
-  Future<bool> _callSignInService() async {
-    try {
-      showLoader();
-      await Future.delayed(const Duration(milliseconds: 150));
-      String username = userController.text.trim();
-      String password = await gfPwdConvert(passwordController.text.trim());
-
-      bool isAdmin = await _authService.login(username, password);
-      // login returns bool (isAdmin), not LoginResponse
-      rxLoginResponse.value = LoginResponse(data: 'Login successful');
-      myApplication.preferenceHelper!.setString(
-        accessTokenKey,
-        rxLoginResponse.value!.data ?? '',
-      );
-
-      bool setProfile = await _callUserSignIn(username, password);
-      //bool setProfile = true;
-      return setProfile;
-    } catch (e) {
-      appLog('$exceptionMsg $e', logging: Logging.error);
-    } finally {
-      hideLoader();
-    }
-    return false;
-  }
-
-  Future<bool> _callUserSignIn(String name, String pass) async {
-    try {
-      showLoader();
-      // var userLoginRequestList = [
-      //   CommonRequest(attribute: "UserCode", value: name),
-      //   CommonRequest(attribute: "UserPassword", value: pass),
-      // ];
-      UserLoginResponse? response = await _authService.userLogin(
-        UserLoginRequest(userCode: name, password: pass),
-      );
-      if (response != null) {
-        rxUserLoginResponse.value = response;
-        await _saveLoginDataToPref();
-
-        userController.clear();
-        passwordController.clear();
-
-        return true;
-      }
-    } catch (e) {
-      appLog('$exceptionMsg $e', logging: Logging.error);
-    } finally {
-      hideLoader();
-    }
-    return false;
-  }
-
-  Future<void> _saveLoginDataToPref() async {
-    if (myApplication.preferenceHelper != null) {
-      inspect(rxLoginResponse.value);
-
-      //username & pass
-      myApplication.preferenceHelper!.setString(
-        loginNameKey,
-        userController.text.trim(),
-      );
-      myApplication.preferenceHelper!.setString(
-        loginPasswordKey,
-        passwordController.text.trim(),
-      );
-
-      //user details
-      myApplication.preferenceHelper!.setString(
-        userCodeKey,
-        rxUserLoginResponse.value!.userCode ?? '',
-      );
-      myApplication.preferenceHelper!.setString(
-        userNameKey,
-        rxUserLoginResponse.value!.userName ?? '',
-      );
-      myApplication.preferenceHelper!.setString(
-        userIdKey,
-        (rxUserLoginResponse.value!.userId ?? "").toString(),
-      );
-
-      myApplication.preferenceHelper!.setString(
-        defaultCompCodeKey,
-        rxUserLoginResponse.value!.defaultCompCode ?? '',
-      );
-
-      myApplication.preferenceHelper!.setString(
-        defaultBranchCodeKey,
-        rxUserLoginResponse.value!.defaultBranchCode ?? '',
-      );
-
-      myApplication.preferenceHelper!.setString(
-        defaultLocationIDKey,
-        (rxUserLoginResponse.value!.defaultLocationId ?? "").toString(),
-      );
-      myApplication.preferenceHelper!.setString(
-        designationKey,
-        rxUserLoginResponse.value!.designation ?? '',
-      );
-
-      // token
-      myApplication.preferenceHelper!.setString(
-        accessTokenKey,
-        rxLoginResponse.value!.data ?? '',
-      );
-
-      //remember me
-      myApplication.preferenceHelper!.setBool(
-        rememberMeKey,
-        rxRememberMe.value,
-      );
-    }
   }
 
   Future<String> combineOTP() async {

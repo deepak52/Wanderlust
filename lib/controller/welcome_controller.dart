@@ -45,7 +45,7 @@ class WelcomeController extends AppBaseController {
     if (hasSubmitted) {
       await navigateToChat(isAdmin: true);
     } else {
-      Get.offAllNamed(tourDateQuestionPageRoute);
+      Get.toNamed(adventurePageRoute);
     }
   }
 

@@ -9,9 +9,7 @@ import 'package:loading_indicator/loading_indicator.dart';
 import '../../gen/assets.gen.dart';
 import '../../helper/app_string.dart';
 import '../../helper/core/theme/color_helper.dart';
-import '../../helper/core/environment/env.dart';
 import '../../helper/date_helper.dart';
-import '../../helper/enum.dart';
 import '../../helper/navigation.dart';
 import '../../helper/sizer.dart';
 import 'text/app_text.dart';
@@ -48,7 +46,7 @@ Scaffold appScaffold({
       canPop: canpop ?? true,
       onPopInvokedWithResult: (didpop, result) {
         if (action != null) {
-          action!(); // execute regardless of pop result
+          action(); // execute regardless of pop result
         }
       },
       child:

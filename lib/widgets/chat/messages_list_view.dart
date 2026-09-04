@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 
+import 'chat_date_separator.dart';
 import 'message_bubble.dart';
 import '../../model/chat_model.dart';
 
@@ -31,6 +32,10 @@ class MessagesListView extends StatelessWidget {
     this.reverse = true,
   });
 
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
   @override
   Widget build(BuildContext context) {
     developer.log('🖥️ MessagesListView.build: messages.length=${messages.length}, currentUserId=$currentUserId, reverse=$reverse');
@@ -40,6 +45,7 @@ class MessagesListView extends StatelessWidget {
     }
     return ListView.builder(
       reverse: reverse,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       itemCount: messages.length,
       itemBuilder: (ctx, idx) {
         final index = reverse ? messages.length - 1 - idx : idx;
@@ -47,10 +53,14 @@ class MessagesListView extends StatelessWidget {
         final isMe = message.senderId == currentUserId;
         final isSelected = message.messageId == selectedMessageId;
 
-        return GestureDetector(
+        // Show date header if this is the first message of its calendar day
+        final bool showDateSeparator = index == 0 ||
+            !_isSameDay(message.timestamp, messages[index - 1].timestamp);
+
+        final bubbleWidget = GestureDetector(
           onHorizontalDragEnd: (details) {
             if (details.primaryVelocity != null &&
-                details.primaryVelocity! > 0 &&
+                details.primaryVelocity! > 100 &&
                 !message.deleted &&
                 onReply != null) {
               onReply!(message.messageId);
@@ -69,8 +79,21 @@ class MessagesListView extends StatelessWidget {
             replyToText: message.replyToText,
             isReplyFromMe: message.replyToSenderId == currentUserId,
             deleted: message.deleted,
+            edited: message.edited,
           ),
         );
+
+        if (showDateSeparator) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ChatDateSeparator(date: message.timestamp),
+              bubbleWidget,
+            ],
+          );
+        }
+
+        return bubbleWidget;
       },
     );
   }

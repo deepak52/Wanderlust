@@ -1,4 +1,4 @@
-import 'dart:developer' as developer;
+﻿import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -19,16 +19,21 @@ class SplashController extends AppBaseController
     with GetSingleTickerProviderStateMixin {
   var rxUpdateRequired = false.obs;
 
-  // Master Animation Controller for 6-Stage Wanderlust Sequence
+  // Master Animation Controller for 7-Stage Wanderlust Sequence
   late AnimationController mainAnimController;
-  late Animation<double> bgFade;
+  late Animation<double> bgDarkFade;
   late Animation<double> logoEmergenceFade;
   late Animation<double> logoEmergenceScale;
+  late Animation<double> taglineFadeIn;
+  late Animation<double> taglineFadeOut;
+  late Animation<double> landscapeFade;
+  late Animation<double> lightPathProgress;
+  late Animation<double> lightPathGlow;
   late Animation<double> logoMoveUp;
   late Animation<double> logoScaleDown;
-  late Animation<double> waveProgress;
-  late Animation<double> loginContentFade;
+  late Animation<double> compassFade;
   late Animation<double> loginContentSlide;
+  late Animation<double> loginContentFade;
 
   // tasks
   RxList<TaskResponse> rxTasksResponse = <TaskResponse>[].obs;
@@ -49,67 +54,104 @@ class SplashController extends AppBaseController
   void initMasterAnimation() {
     mainAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 5500),
+      duration: const Duration(milliseconds: 7500),
     );
 
-    // Stage 1: Background Fade In (0.00 - 0.20)
-    bgFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+    // 1. APP LAUNCH: Dark background fade in (0.0s - 0.8s, 0.00 - 0.11)
+    bgDarkFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: mainAnimController,
-        curve: const Interval(0.00, 0.20, curve: Curves.easeIn),
+        curve: const Interval(0.00, 0.11, curve: Curves.easeIn),
       ),
     );
 
-    // Stage 2: Logo Emerges (0.18 - 0.42)
+    // 2. LOGO FADE IN: Golden logo in center (0.8s - 1.8s, 0.11 - 0.24)
     logoEmergenceFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: mainAnimController,
-        curve: const Interval(0.18, 0.42, curve: Curves.easeOut),
+        curve: const Interval(0.11, 0.24, curve: Curves.easeOut),
       ),
     );
 
-    logoEmergenceScale = Tween<double>(begin: 0.80, end: 1.00).animate(
+    logoEmergenceScale = Tween<double>(begin: 0.88, end: 1.00).animate(
       CurvedAnimation(
         parent: mainAnimController,
-        curve: const Interval(0.18, 0.42, curve: Curves.easeOutCubic),
+        curve: const Interval(0.11, 0.24, curve: Curves.easeOutCubic),
       ),
     );
 
-    // Stage 4: Logo Moves Up & Scales Down (0.45 - 0.78)
+    // 3. TAGLINE APPEARS: "Every journey starts within." (1.8s - 2.8s, 0.24 - 0.37)
+    taglineFadeIn = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.24, 0.37, curve: Curves.easeOut),
+      ),
+    );
+
+    taglineFadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.53, 0.68, curve: Curves.easeIn),
+      ),
+    );
+
+    // 4. LIGHT PATH FORMS & LANDSCAPE EMERGES: (2.8s - 4.0s, 0.37 - 0.53)
+    landscapeFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.36, 0.65, curve: Curves.easeInOut),
+      ),
+    );
+
+    lightPathProgress = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.37, 0.60, curve: Curves.easeInOutSine),
+      ),
+    );
+
+    // 5. JOURNEY AWAKENS: Path glows, logo ascends (4.0s - 6.0s, 0.53 - 0.80)
+    lightPathGlow = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.50, 0.75, curve: Curves.easeInOut),
+      ),
+    );
+
     logoMoveUp = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: mainAnimController,
-        curve: const Interval(0.45, 0.78, curve: Curves.easeInOutCubic),
+        curve: const Interval(0.53, 0.80, curve: Curves.easeInOutCubic),
       ),
     );
 
     logoScaleDown = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: mainAnimController,
-        curve: const Interval(0.45, 0.78, curve: Curves.easeInOutCubic),
+        curve: const Interval(0.53, 0.80, curve: Curves.easeInOutCubic),
       ),
     );
 
-    // Stage 4: Organic Wave Transition (0.50 - 0.88)
-    waveProgress = Tween<double>(begin: 0.0, end: 1.0).animate(
+    // 6. PREPARE TO BEGIN: Compass settles at bottom of path (6.0s - 7.0s, 0.80 - 0.93)
+    compassFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: mainAnimController,
-        curve: const Interval(0.50, 0.88, curve: Curves.easeOutCubic),
+        curve: const Interval(0.80, 0.93, curve: Curves.easeOut),
       ),
     );
 
-    // Stage 5: Login Content Staggered Reveal (0.75 - 0.98)
+    // 7. LOGIN SCREEN: Dark teal sheet slides up smoothly (7.0s+, 0.90 - 1.00)
+    loginContentSlide = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: mainAnimController,
+        curve: const Interval(0.90, 1.00, curve: Curves.easeOutCubic),
+      ),
+    );
+
     loginContentFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: mainAnimController,
-        curve: const Interval(0.75, 0.98, curve: Curves.easeOut),
-      ),
-    );
-
-    loginContentSlide = Tween<double>(begin: 0.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: mainAnimController,
-        curve: const Interval(0.75, 0.98, curve: Curves.easeOutCubic),
+        curve: const Interval(0.90, 1.00, curve: Curves.easeIn),
       ),
     );
   }
@@ -129,8 +171,8 @@ class SplashController extends AppBaseController
 
   /// Checks Firebase auth state and user role, returns route to navigate to.
   Future<String> checkAuthAndNavigate() async {
-    // Hold briefly until Stage 3 logo display before deciding navigation
-    await Future.delayed(const Duration(milliseconds: 3800));
+    // Hold until Stage 6 (6.2s) before navigating if user is already authenticated
+    await Future.delayed(const Duration(milliseconds: 6200));
 
     try {
       final User? firebaseUser = FirebaseAuth.instance.currentUser;
@@ -153,10 +195,6 @@ class SplashController extends AppBaseController
           .collection('users')
           .doc(firebaseUser.uid)
           .get();
-
-      if (!userDoc.exists) {
-        return _getLockOrWelcomeRoute();
-      }
 
       final userData = userDoc.data() ?? {};
       bool isAdmin = false;

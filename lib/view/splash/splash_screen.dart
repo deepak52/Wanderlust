@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../controller/splash_controller.dart';
 import '../../helper/app_message.dart';
@@ -12,11 +13,9 @@ import '../../helper/core/environment/env.dart';
 import '../../helper/navigation.dart';
 import '../../helper/route.dart';
 import '../../model/lock_model.dart';
-import '../../widgets/splash/wanderlust_wave_painter.dart';
+import 'package:wanderlust/widgets/splash/golden_light_path_painter.dart';
+import 'package:wanderlust/widgets/splash/wanderlust_golden_logo.dart';
 import '../login/login_screen.dart';
-
-/// Shared Single Source of Truth for Final Wanderlust Branding Logo Height
-const double kFinalWanderlustLogoHeight = 84.0;
 
 class SplashScreen extends AppBaseView<SplashController> {
   const SplashScreen({super.key});
@@ -39,48 +38,59 @@ class SplashScreen extends AppBaseView<SplashController> {
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F2E1E), // Deep Forest Green base
+      backgroundColor: const Color(0xFF041014),
       body: AnimatedBuilder(
         animation: controller.mainAnimController,
         builder: (context, child) {
           final size = MediaQuery.of(context).size;
           final safeAreaTop = MediaQuery.of(context).padding.top;
 
-          // Stage 4: Logo Move & Scale calculations
-          final moveProgress = controller.logoMoveUp.value; // 0.0 -> 1.0
-          final emergenceOpacity = controller.logoEmergenceFade.value; // 0.0 -> 1.0
-          final emergenceScale = controller.logoEmergenceScale.value; // 0.80 -> 1.00
+          // Dark teal login panel begins at 25% from top, covering 75% of screen height
+          final double panelTopY = size.height * 0.25;
+          const double finalNameH = 72.0;
+          final double finalNameTop = (safeAreaTop +
+                  (panelTopY - safeAreaTop - finalNameH) / 2)
+              .clamp(safeAreaTop + 2.0, panelTopY - 78.0);
 
-          // Shared Single Source of Truth for Top Logo Height (84.0px)
-          const double finalLogoHeight = kFinalWanderlustLogoHeight;
-          const double initialLogoHeight = 120.0; // Emerges in screen center
+          // Center splash initial layout (Stages 2 & 3)
+          const double initialNameH = 92.0;
+          const double initialEmblemH = 125.0;
+          const double initialSpacing = 10.0;
+          final double initialTotalH = initialEmblemH + initialSpacing + initialNameH;
+          final double centerMidY = size.height * 0.40;
+          final double initialNameTop =
+              (centerMidY - initialTotalH / 2) + initialEmblemH + initialSpacing;
 
-          // Calculate exact height interpolation from center emergence to final locked size (84.0px)
-          final double currentLogoHeight = emergenceScale *
-              (lerpDouble(initialLogoHeight, finalLogoHeight, moveProgress) ?? finalLogoHeight);
+          // Pure, smooth, continuous trajectory of Wanderlust Name:
+          final double currentNameTop =
+              lerpDouble(initialNameTop, finalNameTop, controller.logoMoveUp.value) ??
+                  initialNameTop;
+          final double currentNameH =
+              lerpDouble(initialNameH, finalNameH, controller.logoScaleDown.value) ??
+                  finalNameH;
 
-          // Top position: moves from screen center to locked top position (safeAreaTop + 16.0)
-          final double targetTop = safeAreaTop + 16.0;
-          final double startTop = (size.height - currentLogoHeight) / 2;
-          final double currentTop = lerpDouble(startTop, targetTop, moveProgress) ?? targetTop;
+          // Emblem sits naturally above the name and fades out during ascent
+          final double currentEmblemH =
+              lerpDouble(initialEmblemH, 70.0, controller.logoScaleDown.value) ?? 70.0;
+          final double currentSpacing =
+              lerpDouble(initialSpacing, 6.0, controller.logoScaleDown.value) ?? 6.0;
+          final double currentEmblemTop = currentNameTop - currentEmblemH - currentSpacing;
+          final double currentEmblemOpacity =
+              (1.0 - controller.logoMoveUp.value).clamp(0.0, 1.0);
 
-          // Base Wave Header Position (below top logo header area)
-          final double baseWaveY = targetTop + 64.0 + 40.0;
-
-          // Use assets/images/wanderlust.png (clean transparent RGBA PNG)
-          const logoAsset = 'assets/images/wanderlust.png';
-
-          // Fade out animated logo as login content fades in to avoid double logo
-          final animatedLogoOpacity =
-              emergenceOpacity * (1.0 - controller.loginContentFade.value);
+          // Tagline combined opacity (fades in at Stage 3, fades out at Stage 5)
+          final double taglineOpacity = (controller.taglineFadeIn.value *
+                  controller.taglineFadeOut.value)
+              .clamp(0.0, 1.0);
+          final double currentTaglineTop = currentNameTop + currentNameH + 16.0;
 
           return Stack(
             fit: StackFit.expand,
             children: [
-              // 1️⃣ STAGE 1: Full-Screen Landscape Background (splashBg4.png)
+              // 1️⃣ STAGE 1: Deep Dark Nocturnal Background (assets/images/splashBg4.png)
               Positioned.fill(
-                child: FadeTransition(
-                  opacity: controller.bgFade,
+                child: Opacity(
+                  opacity: controller.bgDarkFade.value.clamp(0.0, 1.0),
                   child: Image.asset(
                     'assets/images/splashBg4.png',
                     fit: BoxFit.cover,
@@ -88,45 +98,178 @@ class SplashScreen extends AppBaseView<SplashController> {
                 ),
               ),
 
-              // 2️⃣ STAGE 4: Organic Wave Transition (WanderlustWavePainter)
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: WanderlustWavePainter(
-                    progress: controller.waveProgress.value,
-                    color: const Color(0xFF0F2E1E),
-                    baseWaveY: baseWaveY,
-                  ),
-                ),
-              ),
-
-              // 3️⃣ STAGE 5 & 6: Login Screen Content Reveal
-              if (controller.loginContentFade.value > 0.01)
+              // 2️⃣ STAGE 4 & 5: Landscape Emergence (assets/images/loginbg.png)
+              if (controller.landscapeFade.value > 0.005)
                 Positioned.fill(
                   child: Opacity(
-                    opacity: controller.loginContentFade.value,
-                    child: const LoginScreen(),
+                    opacity: controller.landscapeFade.value.clamp(0.0, 1.0),
+                    child: Image.asset(
+                      'assets/images/loginbg.png',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
                   ),
                 ),
 
-              // 4️⃣ STAGE 2, 3, 4: Emerging & Moving Wanderlust Logo (Single Source of Truth: 84.0px height)
-              if (animatedLogoOpacity > 0.01)
+              // 3️⃣ STAGE 4 & 5: Glowing Golden Light Path
+              if (controller.lightPathProgress.value > 0.005)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: GoldenLightPathPainter(
+                      progress: controller.lightPathProgress.value,
+                      glow: controller.lightPathGlow.value,
+                    ),
+                  ),
+                ),
+
+              // 4️⃣ STAGE 6: Golden Compass Settle Marker at Bottom
+              if (controller.compassFade.value > 0.005)
                 Positioned(
-                  top: currentTop,
+                  bottom: size.height * 0.06,
                   left: 0,
                   right: 0,
-                  child: Center(
-                    child: Opacity(
-                      opacity: animatedLogoOpacity,
-                      child: SizedBox(
-                        height: currentLogoHeight,
+                  child: Opacity(
+                    opacity: (controller.compassFade.value *
+                            (1.0 - controller.loginContentSlide.value))
+                        .clamp(0.0, 1.0),
+                    child: Center(
+                      child: Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF3C65B)
+                                  .withValues(alpha: 0.6),
+                              blurRadius: 18,
+                              spreadRadius: 3,
+                            ),
+                          ],
+                        ),
                         child: Image.asset(
-                          logoAsset,
+                          'assets/invitation/landmarks/start_compass.png',
                           fit: BoxFit.contain,
                         ),
                       ),
                     ),
                   ),
                 ),
+
+              // 5️⃣ STAGE 7: Login Card Slides Up from Bottom (Occupies only panelTopY to bottom!)
+              if (controller.loginContentSlide.value > 0.005)
+                Positioned(
+                  top: panelTopY,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Transform.translate(
+                    offset: Offset(
+                      0,
+                      (1.0 - controller.loginContentSlide.value) *
+                          (size.height - panelTopY),
+                    ),
+                    child: Opacity(
+                      opacity:
+                          controller.loginContentFade.value.clamp(0.0, 1.0),
+                      child: const LoginCard(),
+                    ),
+                  ),
+                ),
+
+              // 6️⃣ STAGE 2, 3, 5, 6, 7: Dynamic Wanderlust Logo & Tagline (Smooth Decoupled Motion)
+              if (controller.logoEmergenceFade.value > 0.005) ...[
+                // A) Top Emblem (wanderlustlogoUp.png): Smoothly ascends and fades away
+                if (currentEmblemOpacity > 0.005)
+                  Positioned(
+                    top: currentEmblemTop,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Opacity(
+                        opacity: (controller.logoEmergenceFade.value *
+                                currentEmblemOpacity)
+                            .clamp(0.0, 1.0),
+                        child: Transform.scale(
+                          scale: controller.logoEmergenceScale.value,
+                          child: WanderlustEmblem(
+                            height: currentEmblemH,
+                            color: const Color(0xFFFFD54F),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // B) Wanderlust Name (wanderlust.png): Continuous smooth glide into final 25% position
+                Positioned(
+                  top: currentNameTop,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Opacity(
+                      opacity:
+                          controller.logoEmergenceFade.value.clamp(0.0, 1.0),
+                      child: Transform.scale(
+                        scale: controller.logoEmergenceScale.value,
+                        child: WanderlustName(
+                          height: currentNameH,
+                          color: const Color(0xFFFFF1C2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // C) Stage 3 Tagline: "Every journey starts within."
+                if (taglineOpacity > 0.005)
+                  Positioned(
+                    top: currentTaglineTop,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Opacity(
+                        opacity: taglineOpacity,
+                        child: Transform.translate(
+                          offset: Offset(
+                            0,
+                            (1.0 - controller.taglineFadeIn.value) * 8.0,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.park_rounded,
+                                size: 15,
+                                color: Color(0xFFFFD54F),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                'Every journey starts within.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.cormorantGaramond(
+                                  fontSize: 16.5,
+                                  fontStyle: FontStyle.italic,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFFFFF1C2),
+                                  letterSpacing: 0.4,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black
+                                          .withValues(alpha: 0.6),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ],
           );
         },

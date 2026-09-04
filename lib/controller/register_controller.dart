@@ -65,45 +65,68 @@ class RegisterController extends AppBaseController {
   }
 
   bool _validateForm() {
-    bool isValid = true;
-
-    // Validate email
     final email = emailController.text.trim();
     if (email.isEmpty) {
       isEmailValid.value = false;
-      isValid = false;
-    } else if (!GetUtils.isEmail(email)) {
+      Get.snackbar(
+        'Email Required',
+        'Please enter your email or phone',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xF506161A),
+        colorText: const Color(0xFFF4E5C5),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return false;
+    }
+    if (!email.contains('@')) {
       isEmailValid.value = false;
-      isValid = false;
-    } else {
-      isEmailValid.value = true;
+      Get.snackbar(
+        'Invalid Email',
+        'Please enter a valid email address',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xF506161A),
+        colorText: const Color(0xFFF4E5C5),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return false;
     }
+    isEmailValid.value = true;
 
-    // Validate password
     final password = passwordController.text.trim();
-    if (password.isEmpty) {
+    if (password.length < 6) {
       isPasswordValid.value = false;
-      isValid = false;
-    } else if (password.length < 6) {
-      isPasswordValid.value = false;
-      isValid = false;
-    } else {
-      isPasswordValid.value = true;
+      Get.snackbar(
+        'Password Too Short',
+        'Password must be at least 6 characters',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xF506161A),
+        colorText: const Color(0xFFF4E5C5),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return false;
     }
+    isPasswordValid.value = true;
 
-    // Validate confirm password
     final confirmPassword = confirmPasswordController.text.trim();
-    if (confirmPassword.isEmpty) {
+    if (confirmPassword != password) {
       isConfirmPasswordValid.value = false;
-      isValid = false;
-    } else if (confirmPassword != password) {
-      isConfirmPasswordValid.value = false;
-      isValid = false;
-    } else {
-      isConfirmPasswordValid.value = true;
+      Get.snackbar(
+        'Passwords Do Not Match',
+        'Please make sure both passwords match',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xF506161A),
+        colorText: const Color(0xFFF4E5C5),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return false;
     }
+    isConfirmPasswordValid.value = true;
 
-    return isValid;
+    return true;
   }
 
   Future<bool> register() async {

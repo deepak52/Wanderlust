@@ -1,81 +1,175 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../controller/login_controller.dart';
 import '../../helper/core/base/app_base_view.dart';
 import '../../helper/route.dart';
-import '../../widgets/splash/wanderlust_wave_painter.dart';
-import '../splash/splash_screen.dart';
+import 'package:wanderlust/widgets/splash/wanderlust_golden_logo.dart';
 
 class LoginScreen extends AppBaseView<LoginController> {
-  const LoginScreen({super.key});
+  final bool showTopLogo;
+  const LoginScreen({super.key, this.showTopLogo = true});
 
   @override
   Widget buildView() {
     final context = Get.context!;
-    final double safeAreaTop = MediaQuery.of(context).padding.top;
-    final double logoTop = safeAreaTop + 16.0;
+    final mediaQuery = MediaQuery.of(context);
+    final double screenHeight = mediaQuery.size.height;
 
-    // Single Source of Truth for Final Logo Height (84.0px)
-    const double logoHeight = kFinalWanderlustLogoHeight;
+    // Dark teal login panel begins at 25% from top, covering 75% of screen height
+    final double panelTopY = screenHeight * 0.25;
+    const double nameHeight = 72.0;
+    // Positioned right in the middle of the available 25% space
+    final double headerLogoTop = (mediaQuery.padding.top +
+            (panelTopY - mediaQuery.padding.top - nameHeight) / 2)
+        .clamp(mediaQuery.padding.top + 2.0, panelTopY - 78.0);
 
-    // Calculated Wave & Content Boundaries (Unchanged position/layout)
-    final double baseWaveY = logoTop + 64.0 + 40.0; // Wave baseline position
-    final double contentTopY = baseWaveY + 36.0; // Content starts strictly BELOW wave boundary
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F2E1E),
-      body: Stack(
-        children: [
-          // 1️⃣ Full-Screen Landscape Background (splashBg4.png)
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/splashBg4.png',
-              fit: BoxFit.cover,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF041014),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF041014),
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1️⃣ Full-Screen Landscape Background (assets/images/loginbg.png)
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/loginbg.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+              ),
             ),
-          ),
 
-          // 2️⃣ Organic Wave Painter (Fills dark forest green from baseWaveY down to bottom)
-          Positioned.fill(
-            child: CustomPaint(
-              painter: WanderlustWavePainter(
-                progress: 1.0,
-                color: const Color(0xFF0F2E1E),
-                baseWaveY: baseWaveY,
+            // 2️⃣ Top Centered Golden Wanderlust Brand Header (right in the middle of top 25% sky)
+            Positioned(
+              top: headerLogoTop,
+              left: 0,
+              right: 0,
+              child: const Center(
+                child: WanderlustGoldenLogo(
+                  nameHeight: nameHeight,
+                  emblemOpacity: 0.0, // Top emblem disappears in final login screen
+                ),
+              ),
+            ),
+
+            // 3️⃣ Dark Teal / Forest Glass Login Surface Covering 75% of Height
+            Positioned(
+              top: panelTopY,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: const LoginCard(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class LoginCard extends StatelessWidget {
+  const LoginCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xF506161A),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(36),
+          topRight: Radius.circular(36),
+        ),
+        border: Border.all(
+          color: const Color(0x334E9B92),
+          width: 1.2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x4D000000),
+            blurRadius: 28,
+            offset: Offset(0, -6),
+          ),
+        ],
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xF0071C20),
+            Color(0xFA041115),
+            Color(0xFF020B0E),
+          ],
+          stops: [0.0, 0.45, 1.0],
+        ),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Golden Top Glowing Edge Accent Line
+          Positioned(
+            top: 0,
+            left: 50,
+            right: 50,
+            child: Container(
+              height: 1.5,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    Color(0xFFE5C178),
+                    Color(0xFFFFF2D6),
+                    Color(0xFFE5C178),
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFFC5A25D),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
             ),
           ),
-
-          // 3️⃣ FIXED LOCKED HEADER LOGO (Single Source of Truth: safeAreaTop + 16.0, height: 84.0px)
           Positioned(
-            top: logoTop,
+            top: -3,
             left: 0,
             right: 0,
             child: Center(
-              child: SizedBox(
-                height: logoHeight,
-                child: Image.asset(
-                  'assets/images/wanderlust.png',
-                  fit: BoxFit.contain,
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFF2D6),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFFF2C265),
+                      blurRadius: 8,
+                      spreadRadius: 3,
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
 
-          // 4️⃣ LOGIN CONTENT REGION (Starts cleanly BELOW the wave boundary at contentTopY; scrollable on keyboard pop-up)
-          Positioned(
-            top: contentTopY,
-            left: 0,
-            right: 0,
-            bottom: 0,
+          // Content
+          Positioned.fill(
             child: const SingleChildScrollView(
               physics: BouncingScrollPhysics(),
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 4,
-                bottom: 24,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: LoginScreenBody(),
             ),
           ),
@@ -98,71 +192,108 @@ class LoginScreenBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header Texts (Positioned cleanly below the wavy curve)
-        const Text(
-          'Welcome Back!',
-          textAlign: TextAlign.left,
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: 0.2,
+        // "Welcome Back!" in warm golden ivory serif
+        Center(
+          child: Text(
+            'Welcome Back!',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 27,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFFF4E5C5),
+              letterSpacing: 0.4,
+            ),
           ),
         ),
-        const SizedBox(height: 6),
-        const Text(
-          'Log in to continue your adventure',
-          textAlign: TextAlign.left,
-          style: TextStyle(
-            fontSize: 13,
-            color: Color(0xFFB0CFBE),
-            fontWeight: FontWeight.w400,
+        const SizedBox(height: 5),
+        const Center(
+          child: Text(
+            'Log in to continue your adventure',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xFF8CAEA8),
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
 
-        // Form Fields & Controls (Spaced gracefully down the screen)
+        // Golden Leaf / Waterdrop Flourish
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 1,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.transparent, Color(0x66C5A25D)],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.water_drop_rounded,
+              size: 11,
+              color: Color(0xFFE5C178),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 44,
+              height: 1,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0x66C5A25D), Colors.transparent],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // Form Fields
         Form(
           key: controller.form,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Email or Phone Field
+              // Email or Phone Label
               const Text(
                 'Email or Phone',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFFD1E3D7),
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEADFCA),
                 ),
               ),
               const SizedBox(height: 8),
-              _buildInputField(
+              _buildDarkInputField(
                 controller: controller.userController,
                 focusNode: controller.userFocusNode,
                 nextFocusNode: controller.passwordFocusNode,
                 hintText: 'Email or Phone',
-                prefixIcon: Icons.mail_outline,
+                prefixIcon: Icons.mail_outline_rounded,
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
-              // Password Field
+              // Password Label
               const Text(
                 'Password',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFFD1E3D7),
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEADFCA),
                 ),
               ),
               const SizedBox(height: 8),
               Obx(
-                () => _buildInputField(
+                () => _buildDarkInputField(
                   controller: controller.passwordController,
                   focusNode: controller.passwordFocusNode,
                   hintText: 'Password',
-                  prefixIcon: Icons.lock_outline,
+                  prefixIcon: Icons.lock_outline_rounded,
                   obscureText: controller.rxhidePassword.value,
                   suffixIcon: controller.rxhidePassword.value
                       ? Icons.visibility_off_outlined
@@ -176,122 +307,76 @@ class LoginScreenBody extends StatelessWidget {
                   },
                 ),
               ),
-              const SizedBox(height: 10),
-
-              // Forgot Password Link
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: const Text(
-                    'Forgot Password?',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF9BC85A),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
               const SizedBox(height: 24),
 
-              // Primary Log In Button
+              // Primary Log In Button with Mountain Peak Icon
               Obx(
                 () => SizedBox(
                   width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9BC85A),
-                      foregroundColor: const Color(0xFF0F2E1E),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  height: 50,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1B828C), Color(0xFF106069)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      elevation: 0,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF1B828C)
+                              .withValues(alpha: 0.4),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    onPressed: controller.rxIsLoading.value
-                        ? null
-                        : () async {
-                            await controller.signIn();
-                          },
-                    child: controller.rxIsLoading.value
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
-                              color: Color(0xFF0F2E1E),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: controller.rxIsLoading.value
+                          ? null
+                          : () async {
+                              await controller.signIn();
+                            },
+                      child: controller.rxIsLoading.value
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(
+                                  Icons.terrain_rounded,
+                                  size: 19,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Log In',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                        : const Text(
-                            'Log In',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F2E1E),
-                            ),
-                          ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 26),
-
-              // Or Continue With Divider
-              Row(
-                children: [
-                  Expanded(
-                    child: Divider(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      thickness: 1,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'or continue with',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.55),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Divider(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      thickness: 1,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-
-              // Social Login Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildSocialSquareButton(
-                    child: const GoogleLogoIcon(size: 20),
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 14),
-                  _buildSocialSquareButton(
-                    child: const Icon(
-                      Icons.apple,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 14),
-                  _buildSocialSquareButton(
-                    child: const Icon(
-                      Icons.smartphone_outlined,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    onTap: () {},
-                  ),
-                ],
               ),
               const SizedBox(height: 28),
 
@@ -299,11 +384,11 @@ class LoginScreenBody extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
+                  const Text(
                     "Don't have an account? ",
                     style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 13.5,
+                      color: Color(0xFF7E9D98),
                     ),
                   ),
                   GestureDetector(
@@ -311,15 +396,15 @@ class LoginScreenBody extends StatelessWidget {
                     child: const Text(
                       'Sign Up',
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF9BC85A),
+                        fontSize: 13.5,
+                        color: Color(0xFFF2C265),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -327,7 +412,7 @@ class LoginScreenBody extends StatelessWidget {
     );
   }
 
-  Widget _buildInputField({
+  Widget _buildDarkInputField({
     required TextEditingController controller,
     required FocusNode focusNode,
     FocusNode? nextFocusNode,
@@ -340,14 +425,21 @@ class LoginScreenBody extends StatelessWidget {
     VoidCallback? onSubmitted,
   }) {
     return Container(
-      height: 48,
+      height: 50,
       decoration: BoxDecoration(
-        color: const Color(0xFF143825),
+        color: const Color(0xFF06171B),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
-          width: 1,
+          color: const Color(0x446B968E),
+          width: 1.2,
         ),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: TextField(
         controller: controller,
@@ -357,35 +449,36 @@ class LoginScreenBody extends StatelessWidget {
         textInputAction:
             nextFocusNode != null ? TextInputAction.next : TextInputAction.done,
         style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
+          color: Color(0xFFF0EBE0),
+          fontSize: 14.5,
+          fontWeight: FontWeight.w500,
         ),
-        cursorColor: const Color(0xFF9BC85A),
+        cursorColor: const Color(0xFF1B828C),
         decoration: InputDecoration(
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(vertical: 15),
           hintText: hintText,
-          hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.38),
-            fontSize: 13,
+          hintStyle: const TextStyle(
+            color: Color(0xFF5A7974),
+            fontSize: 13.5,
           ),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           prefixIcon: Icon(
             prefixIcon,
-            color: Colors.white.withValues(alpha: 0.5),
-            size: 18,
+            color: const Color(0xFF86ADA5),
+            size: 20,
           ),
           suffixIcon: suffixIcon != null
               ? IconButton(
                   icon: Icon(
                     suffixIcon,
-                    color: Colors.white.withValues(alpha: 0.5),
-                    size: 18,
+                    color: const Color(0xFF86ADA5),
+                    size: 20,
                   ),
                   onPressed: onSuffixTap,
-                  splashRadius: 18,
+                  splashRadius: 20,
                 )
               : null,
         ),
@@ -399,90 +492,4 @@ class LoginScreenBody extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildSocialSquareButton({
-    required Widget child,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: const Color(0xFF143825),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.15),
-            width: 1,
-          ),
-        ),
-        child: Center(child: child),
-      ),
-    );
-  }
-}
-
-class GoogleLogoIcon extends StatelessWidget {
-  final double size;
-  const GoogleLogoIcon({super.key, this.size = 20});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: _GoogleLogoPainter(),
-      ),
-    );
-  }
-}
-
-class _GoogleLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double cx = size.width / 2;
-    final double cy = size.height / 2;
-    final double outerR = size.width * 0.48;
-    final double innerR = size.width * 0.24;
-    final Rect rect = Rect.fromCircle(
-      center: Offset(cx, cy),
-      radius: (outerR + innerR) / 2,
-    );
-    final double strokeWidth = outerR - innerR;
-
-    final Paint p = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    // Red (top)
-    p.color = const Color(0xFFEA4335);
-    canvas.drawArc(rect, -0.6, -1.8, false, p);
-
-    // Yellow (left)
-    p.color = const Color(0xFFFBBC05);
-    canvas.drawArc(rect, -2.4, -1.2, false, p);
-
-    // Green (bottom)
-    p.color = const Color(0xFF34A853);
-    canvas.drawArc(rect, 0.6, 1.8, false, p);
-
-    // Blue (right arc)
-    p.color = const Color(0xFF4285F4);
-    canvas.drawArc(rect, -0.6, 1.2, false, p);
-
-    // Blue horizontal bar
-    final Paint barPaint = Paint()
-      ..color = const Color(0xFF4285F4)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(
-      Rect.fromLTRB(cx, cy - strokeWidth / 2, cx + outerR, cy + strokeWidth / 2),
-      barPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -25,8 +25,12 @@ void main() async {
 
   // Initialize singleton classes (matching Agro-Prod AppInit)
   Get.put(MyApplication());
-  await Get.find<MyApplication>().setUpSharedPreference();
-  await Get.find<MyApplication>().setVersionNumber();
+  try {
+    await Get.find<MyApplication>().setUpSharedPreference();
+    await Get.find<MyApplication>().setVersionNumber();
+  } catch (e) {
+    debugPrint('Preferences startup initialization error: $e');
+  }
   Get.put(HttpService());
   Get.put(AppBaseService());
   Get.put(LockService());
@@ -53,13 +57,14 @@ void _setUpScreenOrientation() {
     AppEnvironment.deviceType == UserDeviceType.phone
         ? [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]
         : [
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ],
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.portraitDown,
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ],
   );
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 

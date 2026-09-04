@@ -1,105 +1,141 @@
 import 'package:flutter/material.dart';
 
+/// Central Design System & Color Palette for Wanderlust
+/// Palette: Rich Sky Blue + Teal + Fresh Natural Green + Warm Gold Accents
 class AppColorHelper {
-  // Primary Colors
-  static const Color _primaryColor = Color(0xFF2196F3);
-  static const Color _primaryLightColor = Color(0xFF64B5F6);
-  static const Color _primaryDarkColor = Color(0xFF1976D2);
+  // ==================== 1. BRAND PALETTE ====================
+  // Sky Blue
+  static const Color skyBlue = Color(0xFF5DBBE8);
+  static const Color deepSkyBlue = Color(0xFF2D9FD0);
+  static const Color lightSkyBlue = Color(0xFF90D5F7);
 
-  // Secondary Colors
-  static const Color _secondaryColor = Color(0xFF03DAC6);
-  static const Color _secondaryLightColor = Color(0xFF66FFF9);
-  static const Color _secondaryDarkColor = Color(0xFF00A896);
+  // Teal
+  static const Color teal = Color(0xFF238F91);
+  static const Color deepTeal = Color(0xFF126B70);
+  static const Color darkTeal = Color(0xFF0F5458);
+
+  // Dark Typography & Contrast
+  static const Color darkText = Color(0xFF123B4A);
+  static const Color darkNavy = Color(0xFF0C2731);
+  static const Color subduedText = Color(0xFF4A6D7C);
+  static const Color hintText = Color(0xFF7A9CA9);
+
+  // Natural Green (Path A / Success / Outdoor accents)
+  static const Color naturalGreen = Color(0xFF67B66A);
+  static const Color freshGreen = Color(0xFF8BCB67);
+  static const Color deepGreen = Color(0xFF388E3C);
+
+  // Warm Accents (Path B / Sunset / Campfire / Gold Badges)
+  static const Color warmGold = Color(0xFFF3C65B);
+  static const Color amberGold = Color(0xFFE5A93C);
+  static const Color sunsetOrange = Color(0xFFF29B55);
+
+  // Surfaces & Backgrounds
+  static const Color softBackground = Color(0xFFEAF7F8);
+  static const Color paleBlueSurface = Color(0xFFDDF2FA);
+  static const Color cardSurface = Color(0xFFFFFFFF);
+  static const Color softCream = Color(0xFFFFF9EC);
+  static const Color borderTeal = Color(0xFFCCE8ED);
+  static const Color borderSubtle = Color(0xFFE1F0F3);
+
+  // ==================== CHAT REDESIGN PALETTE (Calm • Modern • Dark) ====================
+  static const Color chatPrimaryTeal = Color(0xFF0C6B63);
+  static const Color chatDeepTeal = Color(0xFF114E52);
+  static const Color chatTealGray = Color(0xFF1F2D2F);
+  static const Color chatSurfaceDark = Color(0xFF161C1D);
+  static const Color chatSurface = Color(0xFF202628);
+  static const Color chatSurfaceLight = Color(0xFF2A3133);
+  static const Color chatTextPrimary = Color(0xFFE6ECEC);
+  static const Color chatTextSecondary = Color(0xFFA5B2B2);
+  static const Color chatDivider = Color(0xFF2E3739);
+  static const Color chatIncomingBubble = Color(0xFFFFFFFF);
+  static const Color chatIncomingText = Color(0xFF1C2323);
+  static const Color chatSelectedHighlight = Color(0xFF1A3A37);
+  static const Color chatOnlineGreen = Color(0xFF34C759);
+  static const Color chatSeenTick = Color(0xFF26C6DA);
+  static const Color chatDeliveredTick = Color(0xFFA5B2B2);
+
+  // ==================== 2. PRIMARY & SECONDARY ====================
+  static const Color _primaryColor = teal;
+  static const Color _primaryLightColor = skyBlue;
+  static const Color _primaryDarkColor = deepTeal;
+
+  static const Color _secondaryColor = naturalGreen;
+  static const Color _secondaryLightColor = freshGreen;
+  static const Color _secondaryDarkColor = deepGreen;
 
   // Background Colors
-  static const Color _scaffoldBackgroundColor = Color(0xFFF5F5F5);
-  static const Color _cardBackgroundColor = Colors.white;
-  static const Color _dialogBackgroundColor = Colors.white;
+  static const Color _scaffoldBackgroundColor = softBackground;
+  static const Color _cardBackgroundColor = cardSurface;
+  static const Color _dialogBackgroundColor = cardSurface;
 
   // Text Colors
-  static const Color _primaryTextColor = Color(0xFF212121);
-  static const Color _secondaryTextColor = Color(0xFF757575);
-  static const Color _disabledTextColor = Color(0xFFBDBDBD);
-  static const Color _hintTextColor = Color(0xFF9E9E9E);
+  static const Color _primaryTextColor = darkText;
+  static const Color _secondaryTextColor = subduedText;
+  static const Color _disabledTextColor = Color(0xFFB0C4CC);
+  static const Color _hintTextColor = hintText;
   static const Color _whiteTextColor = Colors.white;
 
   // Status Colors
-  static const Color _successColor = Color(0xFF4CAF50);
-  static const Color _errorColor = Color(0xFFF44336);
-  static const Color _warningColor = Color(0xFFFF9800);
-  static const Color _infoColor = Color(0xFF2196F3);
+  static const Color _successColor = naturalGreen;
+  static const Color _errorColor = Color(0xFFE5574D);
+  static const Color _warningColor = sunsetOrange;
+  static const Color _infoColor = skyBlue;
 
   // Border Colors
-  static const Color _borderColor = Color(0xFFE0E0E0);
-  static const Color _focusedBorderColor = _primaryColor;
+  static const Color _borderColor = borderTeal;
+  static const Color _focusedBorderColor = teal;
   static const Color _errorBorderColor = _errorColor;
-  static const Color _disabledBorderColor = Color(0xFFE0E0E0);
+  static const Color _disabledBorderColor = borderSubtle;
 
   // Divider Colors
-  static const Color _dividerColor = Color(0xFFE0E0E0);
+  static const Color _dividerColor = borderSubtle;
 
   // Icon Colors
-  static const Color _iconColor = Color(0xFF757575);
-  static const Color _selectedIconColor = _primaryColor;
-  static const Color _unselectedIconColor = Color(0xFFBDBDBD);
+  static const Color _iconColor = darkTeal;
+  static const Color _selectedIconColor = teal;
+  static const Color _unselectedIconColor = Color(0xFF90ACB8);
 
   // Switch Colors
-  static const Color _switchActiveColor = _primaryColor;
-  static const Color _switchInactiveColor = Color(0xFFBDBDBD);
+  static const Color _switchActiveColor = teal;
+  static const Color _switchInactiveColor = Color(0xFFB0C4CC);
 
   // Checkbox Colors
   static const Color _checkColor = Colors.white;
 
   // Loader Colors
-  static const Color _loaderColor = _primaryColor;
-  static const Color _loaderSecondaryColor = _primaryLightColor;
+  static const Color _loaderColor = teal;
+  static const Color _loaderSecondaryColor = skyBlue;
 
   // Circle Avatar
-  static const Color _circleAvatarBgColor = Color(0xFFE3E6F5);
+  static const Color _circleAvatarBgColor = paleBlueSurface;
 
   // Toast
-  static const Color _toastMsgColor = Color(0xFF323030);
+  static const Color _toastMsgColor = darkText;
 
   // Box Shadow
-  static const Color _boxShadowColor = Color(0x1A000000);
+  static const Color _boxShadowColor = Color(0x1A123B4A);
 
   // Form Field
-  static const Color _pwdFormFieldBorderColor = Color(0xFF43179F);
+  static const Color _pwdFormFieldBorderColor = teal;
 
   // Custom Colors for Wanderlust
-  static const Color _wanderlustBlue = Color(0xFF1E88E5);
-  static const Color _wanderlustDarkBlue = Color(0xFF1565C0);
-  static const Color _wanderlustLightBlue = Color(0xFFBBDEFB);
+  static const Color _wanderlustBlue = skyBlue;
+  static const Color _wanderlustDarkBlue = deepSkyBlue;
+  static const Color _wanderlustLightBlue = paleBlueSurface;
 
   // Chat Colors
-  static const Color _chatSentBackground = _primaryColor;
-  static const Color _chatReceivedBackground = Color(0xFFE0E0E0);
+  static const Color _chatSentBackground = teal;
+  static const Color _chatReceivedBackground = cardSurface;
   static const Color _chatSentText = Colors.white;
-  static const Color _chatReceivedText = _primaryTextColor;
+  static const Color _chatReceivedText = darkText;
 
-  // Additional colors needed by common_widget.dart
+  // Additional colors
   static const Color _transparentColor = Colors.transparent;
-  static const Color _buttonColor = _primaryColor;
+  static const Color _buttonColor = teal;
   static const Color _backgroundColor = _scaffoldBackgroundColor;
 
-  // Dark Theme Colors
-  static const Color _darkScaffoldBackground = Color(0xFF121212);
-  static const Color _darkCardBackground = Color(0xFF1E1E1E);
-  static const Color _darkDialogBackground = Color(0xFF1E1E1E);
-  static const Color _darkPrimaryText = Colors.white;
-  static const Color _darkSecondaryText = Color(0xFFBDBDBD);
-  static const Color _darkDisabledText = Color(0xFF757575);
-  static const Color _darkHintText = Color(0xFF9E9E9E);
-  static const Color _darkBorderColor = Color(0xFF333333);
-  static const Color _darkDividerColor = Color(0xFF333333);
-  static const Color _darkIconColor = Color(0xFFBDBDBD);
-  static const Color _darkSelectedIconColor = _primaryLightColor;
-  static const Color _darkUnselectedIconColor = Color(0xFF757575);
-  static const Color _darkSwitchActiveColor = _primaryLightColor;
-  static const Color _darkSwitchInactiveColor = Color(0xFF757575);
-  static const Color _darkLoaderColor = _primaryLightColor;
-
-  // Public getters for static colors
+  // ==================== 3. PUBLIC GETTERS ====================
   static Color get primaryColor => _primaryColor;
   static Color get primaryLightColor => _primaryLightColor;
   static Color get primaryDarkColor => _primaryDarkColor;
@@ -118,7 +154,7 @@ class AppColorHelper {
   static Color get disabledTextColor => _disabledTextColor;
   static Color get hintTextColor => _hintTextColor;
   static Color get whiteTextColor => _whiteTextColor;
-  static Color get textColor => _primaryTextColor; // Alias for primaryTextColor
+  static Color get textColor => _primaryTextColor;
 
   static Color get successColor => _successColor;
   static Color get errorColor => _errorColor;
@@ -145,11 +181,8 @@ class AppColorHelper {
   static Color get loaderSecondaryColor => _loaderSecondaryColor;
 
   static Color get circleAvatarBgColor => _circleAvatarBgColor;
-
   static Color get toastMsgColor => _toastMsgColor;
-
   static Color get boxShadowColor => _boxShadowColor;
-
   static Color get pwdFormFieldBorderColor => _pwdFormFieldBorderColor;
 
   static Color get transparentColor => _transparentColor;
@@ -164,61 +197,30 @@ class AppColorHelper {
   static Color get chatSentText => _chatSentText;
   static Color get chatReceivedText => _chatReceivedText;
 
-  // Dark theme getters
-  static Color get darkScaffoldBackground => _darkScaffoldBackground;
-  static Color get darkCardBackground => _darkCardBackground;
-  static Color get darkDialogBackground => _darkDialogBackground;
-  static Color get darkPrimaryText => _darkPrimaryText;
-  static Color get darkSecondaryText => _darkSecondaryText;
-  static Color get darkDisabledText => _darkDisabledText;
-  static Color get darkHintText => _darkHintText;
-  static Color get darkBorderColor => _darkBorderColor;
-  static Color get darkDividerColor => _darkDividerColor;
-  static Color get darkIconColor => _darkIconColor;
-  static Color get darkSelectedIconColor => _darkSelectedIconColor;
-  static Color get darkUnselectedIconColor => _darkUnselectedIconColor;
-  static Color get darkSwitchActiveColor => _darkSwitchActiveColor;
-  static Color get darkSwitchInactiveColor => _darkSwitchInactiveColor;
-  static Color get darkLoaderColor => _darkLoaderColor;
-
-  // Additional colors matching Agro-Prod AppColorHelper
   static Color get cardColor => cardBackgroundColor;
-  // static Color get focusedBorderColor => primaryColor;  // Already defined above
-  // static Color get primaryTextColor => primaryTextColor;  // Already defined above
-  // static Color get enabledBorderColor => borderColor;  // Already defined above
-  // static Color get disabledBorderColor => disabledBorderColor;  // Already defined above
-  // static Color get errorBorderColor => errorBorderColor;  // Already defined above
-  // static Color get dividerColor => _dividerColor;  // Already defined above
-  // static Color get iconColor => _iconColor;  // Already defined above
-  // static Color get selectedIconColor => _selectedIconColor;  // Already defined above
-  // static Color get unselectedIconColor => _unselectedIconColor;  // Already defined above
   static Color get cardTextColor => primaryTextColor;
-  // static Color get transparentColor => _transparentColor;  // Already defined above
-  // static Color get pwdFormFieldBorderColor => _pwdFormFieldBorderColor;  // Already defined above
-  // static Color get boxShadowColor => _boxShadowColor;  // Already defined above
-  // static Color get circleAvatarBgColor => _circleAvatarBgColor;  // Already defined above
-  // static Color get toastMsgColor => _toastMsgColor;  // Already defined above
-  // static Color get loaderColor => _loaderColor;  // Already defined above
-  // static Color get loaderSecondaryColor => _loaderSecondaryColor;  // Already defined above
   static Color get buttonContainerBgColor => primaryColor;
   static Color get readNotification => successColor;
   static Color get unreadNotification => warningColor;
   static Color get dashBoardContainerBgColor => cardBackgroundColor;
-  // static Color get switchActiveColor => _switchActiveColor;  // Already defined above
-  // static Color get switchInactiveColor => _switchInactiveColor;  // Already defined above
-  // static Color get secondaryColor => _secondaryColor;  // Already defined above
   static Color get secondaryBackgroundColor => scaffoldBackgroundColor;
   static Color get warningRedColor => errorColor;
   static Color get warningYellowColor => warningColor;
   static Color get successGreenColor => successColor;
-  static Color get warningBackgroundRed => Color(0xFFFFEBEE);
-  static Color get warningBackgroundYellow => Color(0xFFFFF8E1);
-  static Color get successBackgroundGreen => Color(0xFFE8F5E9);
-  static Color get infoBackgroundYellow => Color(0xFFFFF8E1);
+  static Color get warningBackgroundRed => const Color(0xFFFFEBEE);
+  static Color get warningBackgroundYellow => const Color(0xFFFFF8E1);
+  static Color get successBackgroundGreen => const Color(0xFFE8F5E9);
+  static Color get infoBackgroundYellow => const Color(0xFFFFF8E1);
   static Color get infoBorderYellow => warningColor;
   static Color get filterBackgroundColor => primaryColor.withValues(alpha: 0.1);
   static Color get filterInfoBackgroundColor =>
       infoColor.withValues(alpha: 0.1);
   static Color get filterInfoBorderColor => infoColor;
-  static Color get backgroundgreyColor => Color(0xFFF5F5F5);
+  static Color get backgroundgreyColor => softBackground;
+
+  // Semantic Adventure & Map Route Colors
+  static Color get routePrimary => naturalGreen;
+  static Color get routePrimaryGlow => freshGreen;
+  static Color get routeSecondary => warmGold;
+  static Color get routeSecondaryGlow => amberGold;
 }

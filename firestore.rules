@@ -1,12 +1,40 @@
+rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Match all documents in the 'messages' collection
-    match /messages/{messageId} {
-      // Allow read and write only if the user is authenticated
-      allow read, write: if request.auth != null;
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Optional: You can create more specific rules for other collections
+    // Responses collection (read, write, and delete allowed for authenticated users/admins)
+    match /responses/{responseId} {
+      allow read, write, delete: if isAuthenticated();
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read, write, delete: if isAuthenticated();
+    }
+
+    // Chats collection and nested messages subcollection
+    match /chats/{chatId} {
+      allow read, write, delete: if isAuthenticated();
+
+      match /messages/{messageId} {
+        allow read, write, delete: if isAuthenticated();
+      }
+    }
+
+    // Legacy messages collection
+    match /messages/{messageId} {
+      allow read, write, delete: if isAuthenticated();
+    }
+
+    // Fallback: allow authenticated access to other application documents
+    match /{document=**} {
+      allow read, write, delete: if isAuthenticated();
+    }
   }
 }

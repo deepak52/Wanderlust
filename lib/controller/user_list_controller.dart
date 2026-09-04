@@ -84,8 +84,26 @@ class UserListController extends AppBaseController {
 
       // STAGE 1: Print exact chatId used by UserListController
       developer.log('🟣 STAGE1 UserListController: chatId=$chatId, currentUserId=${currentUser.uid}, targetUserId=$userId, isAdmin=true');
+      final userData = user.data();
+      final rawName = userData['name'];
+      final rawEmail = userData['email'];
+      final name = rawName != null ? rawName.toString().trim() : '';
+      final email = rawEmail != null ? rawEmail.toString().trim() : '';
+      final displayName = name.isNotEmpty
+          ? name
+          : (email.isNotEmpty
+              ? email.split('@').first[0].toUpperCase() + email.split('@').first.substring(1)
+              : '');
 
       Get.toNamed('/chat', arguments: {'chatId': chatId, 'isAdmin': true});
+      Get.toNamed(
+        '/chat',
+        arguments: {
+          'chatId': chatId,
+          'isAdmin': true,
+          'userName': displayName,
+        },
+      );
     } catch (e) {
       hideLoader();
       Get.snackbar(

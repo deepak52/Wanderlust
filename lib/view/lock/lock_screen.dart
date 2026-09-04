@@ -3,6 +3,7 @@
 // Follows Agro-Prod patterns: extends AppBaseView, uses shared widgets, theme
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../controller/lock_controller.dart';
@@ -18,7 +19,19 @@ class LockScreen extends AppBaseView<LockController> {
   const LockScreen({super.key, this.arguments});
 
   @override
-  Widget buildView() => _buildScaffold();
+  Widget buildView() => Obx(
+        () => PopScope(
+          canPop: controller.unlocked.value,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            // Prevent back-button bypass while locked; minimize/close app instead
+            if (!controller.unlocked.value) {
+              SystemNavigator.pop();
+            }
+          },
+          child: _buildScaffold(),
+        ),
+      );
 
   Scaffold _buildScaffold() => appScaffold(
     topSafe: false,

@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../controller/welcome_controller.dart';
-import '../../gen/assets.gen.dart';
+import '../../helper/adventure_assets.dart';
 import '../../helper/core/base/app_base_view.dart';
+import '../../helper/core/theme/color_helper.dart';
 import '../../helper/widget/common_widget.dart';
 
 class WelcomeScreen extends AppBaseView<WelcomeController> {
@@ -14,9 +15,9 @@ class WelcomeScreen extends AppBaseView<WelcomeController> {
   Widget buildView() => _widgetView();
 
   Scaffold _widgetView() => appScaffoldImg(
-    backgroundImage: AssetImage(Assets.images.wanderlust.path),
+    backgroundImage: const AssetImage(AdventureAssets.bgWelcomeMysterious),
     backgroundFit: BoxFit.cover,
-    backgroundOverlayColor: Colors.black.withValues(alpha: 0.3),
+    backgroundOverlayColor: AppColorHelper.darkNavy.withValues(alpha: 0.35),
     appBar: AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -26,23 +27,23 @@ class WelcomeScreen extends AppBaseView<WelcomeController> {
       future: FirebaseAuth.instance.authStateChanges().first,
       builder: (context, userSnapshot) {
         if (userSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: AppColorHelper.teal));
         }
 
         final user = userSnapshot.data;
         if (user == null) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: AppColorHelper.teal));
         }
 
         return FutureBuilder<bool>(
           future: controller.hasSubmittedResponses(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator(color: AppColorHelper.teal));
             }
 
             if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
+              return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white)));
             }
 
             snapshot.data ?? false;
@@ -64,8 +65,8 @@ class WelcomeScreen extends AppBaseView<WelcomeController> {
                             color: Colors.white,
                             shadows: [
                               Shadow(
-                                blurRadius: 4,
-                                color: Colors.black45,
+                                blurRadius: 8,
+                                color: Colors.black87,
                                 offset: Offset(2, 2),
                               ),
                             ],
@@ -83,13 +84,17 @@ class WelcomeScreen extends AppBaseView<WelcomeController> {
                           width: 70,
                           height: 70,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF3D5A80),
+                            gradient: const LinearGradient(
+                              colors: [AppColorHelper.teal, AppColorHelper.deepSkyBlue],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black26,
-                                blurRadius: 10,
-                                offset: Offset(0, 4),
+                                color: AppColorHelper.teal.withValues(alpha: 0.4),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),

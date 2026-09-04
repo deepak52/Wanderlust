@@ -9,10 +9,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helper/core/base/app_base_controller.dart';
+import '../helper/core/theme/color_helper.dart';
 import '../helper/route.dart';
 import '../model/chat_model.dart';
 import '../service/chat_service.dart';
@@ -28,8 +30,8 @@ class ChatController extends AppBaseController {
   final ActiveChatTracker _chatTracker = Get.find<ActiveChatTracker>();
 
   // ==================== NAVIGATION ARGUMENTS ====================
-  late String chatId;
-  late bool isAdmin;
+  late final String chatId;
+  late final bool isAdmin;
   String? _currentUserId;
   String? _otherUserId;
 
@@ -44,7 +46,8 @@ class ChatController extends AppBaseController {
   /// Currently selected message ID for long-press actions
   final RxString selectedMessageId = ''.obs;
 
-  /// Message being replied to (text and sender ID)
+  /// Message being replied to (ID, text, and sender ID)
+  final RxString replyToMessageId = ''.obs;
   final RxString replyToText = ''.obs;
   final RxString replyToSenderId = ''.obs;
 
@@ -122,6 +125,17 @@ class ChatController extends AppBaseController {
   /// Current user ID (exposed for UI)
   String get currentUserId => _currentUserId ?? '';
 
+  /// Other participant display name (for admin view)
+  final RxString otherUserName = ''.obs;
+
+  /// Header title: other user's name for admin, "Partner" for regular users
+  String get displayTitle {
+    if (isAdmin) {
+      return otherUserName.value.isNotEmpty ? otherUserName.value : 'User';
+    }
+    return 'Partner';
+  }
+
   // ==================== LIFECYCLE ====================
 
   @override
@@ -153,10 +167,15 @@ class ChatController extends AppBaseController {
     if (args is Map<String, dynamic>) {
       chatId = args['chatId'] as String? ?? '';
       isAdmin = args['isAdmin'] as bool? ?? false;
+      final passedName = args['userName'] as String? ?? args['name'] as String?;
+      if (passedName != null && passedName.trim().isNotEmpty) {
+        otherUserName.value = passedName.trim();
+      }
     }
     
     // STAGE 1: Print exact chatId received by ChatController from navigation
     developer.log('🟣 STAGE1 ChatController: chatId=$chatId, isAdmin=$isAdmin, currentUserId=$_currentUserId');
+    developer.log('🟣 STAGE1 ChatController: chatId=$chatId, isAdmin=$isAdmin, currentUserId=$_currentUserId, otherUserName=${otherUserName.value}');
   }
 
   void _initializeChat() {
@@ -176,6 +195,11 @@ class ChatController extends AppBaseController {
         // Load chat room metadata
         _loadChatRoom();
 
+        // If admin and name not passed, fetch from participant data
+        if (isAdmin && otherUserName.value.isEmpty) {
+          _loadOtherUserName();
+        }
+
         // Start listening to messages
         _listenToMessages();
 
@@ -189,6 +213,26 @@ class ChatController extends AppBaseController {
     } catch (e) {
       _setError('Failed to initialize chat: $e');
       _setLoading(false);
+    }
+  }
+
+  Future<void> _loadOtherUserName() async {
+    try {
+      final data = await _chatService.getOtherParticipantData(chatId);
+      if (data != null) {
+        final rawName = data['name'];
+        final rawEmail = data['email'];
+        final name = rawName != null ? rawName.toString().trim() : '';
+        final email = rawEmail != null ? rawEmail.toString().trim() : '';
+        if (name.isNotEmpty) {
+          otherUserName.value = name;
+        } else if (email.isNotEmpty) {
+          final handle = email.split('@').first;
+          otherUserName.value = handle[0].toUpperCase() + handle.substring(1);
+        }
+      }
+    } catch (e) {
+      developer.log('ChatController: Error loading other user data: $e');
     }
   }
 
@@ -348,11 +392,10 @@ class ChatController extends AppBaseController {
       await _chatService.sendMessage(
         chatId: chatId,
         text: text,
-        replyToMessageId: isReplying ? selectedMessageId.value : null,
+        replyToMessageId: isReplying ? replyToMessageId.value : null,
         replyToText: isReplying ? replyToText.value : null,
         replyToSenderId: isReplying ? replyToSenderId.value : null,
       );
-      developer.log('✅ ChatController.sendMessage: Message sent successfully');
 
       // Play send sound
       _soundPlayer.playSendSound();
@@ -392,6 +435,64 @@ class ChatController extends AppBaseController {
       _setSending(false);
       cancelEdit();
       _requestScrollToBottom();
+    }
+  }
+
+  /// Confirm and soft-delete a message with a dialog
+  Future<void> confirmDeleteMessage(BuildContext context, String messageId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColorHelper.cardSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColorHelper.borderTeal, width: 1.2),
+        ),
+        title: Text(
+          'Delete Message?',
+          style: GoogleFonts.cinzel(
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColorHelper.darkText,
+            ),
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this message? This message will be marked as deleted.',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: AppColorHelper.subduedText,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppColorHelper.subduedText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await deleteMessage(messageId);
     }
   }
 
@@ -437,14 +538,17 @@ class ChatController extends AppBaseController {
   void startReply(String messageId) {
     final message = messages.firstWhereOrNull((m) => m.messageId == messageId);
     if (message != null && !message.deleted) {
+      cancelEdit(); // Cancel edit if active
+      replyToMessageId.value = messageId;
       replyToText.value = message.text;
       replyToSenderId.value = message.senderId;
-      selectedMessageId.value = messageId;
+      clearSelection();
     }
   }
 
   /// Clear reply state
   void clearReply() {
+    replyToMessageId.value = '';
     replyToText.value = '';
     replyToSenderId.value = '';
   }
@@ -454,7 +558,8 @@ class ChatController extends AppBaseController {
   /// Start editing a message
   void startEdit(String messageId) {
     final message = messages.firstWhereOrNull((m) => m.messageId == messageId);
-    if (message != null && message.senderId == _currentUserId) {
+    if (message != null && message.senderId == _currentUserId && !message.deleted) {
+      clearReply(); // Cancel reply if active
       editingMessageId.value = messageId;
       originalEditingText.value = message.text;
       messageController.text = message.text;
@@ -533,16 +638,24 @@ class ChatController extends AppBaseController {
     }
 
     if (message.seen) {
-      return Icon(
+      return const Icon(
         Icons.done_all,
         size: 16,
-        color: Get.theme.colorScheme.primary,
+        color: AppColorHelper.chatSeenTick,
       );
     }
     if (message.delivered) {
-      return Icon(Icons.done_all, size: 16, color: Colors.grey);
+      return const Icon(
+        Icons.done_all,
+        size: 16,
+        color: AppColorHelper.chatDeliveredTick,
+      );
     }
-    return Icon(Icons.done, size: 16, color: Colors.grey);
+    return const Icon(
+      Icons.done,
+      size: 15,
+      color: AppColorHelper.chatDeliveredTick,
+    );
   }
 
   // ==================== NAVIGATION ====================

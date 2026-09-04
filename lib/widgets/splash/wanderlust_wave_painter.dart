@@ -10,7 +10,7 @@ class WanderlustWavePainter extends CustomPainter {
 
   const WanderlustWavePainter({
     required this.progress,
-    this.color = const Color(0xFF0F2E1E),
+    this.color = const Color(0xFFEAF7F8),
     this.baseWaveY = 0.0,
   });
 

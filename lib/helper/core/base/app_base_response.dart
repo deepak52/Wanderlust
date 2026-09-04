@@ -31,7 +31,7 @@ class AppBaseResponse<T> {
           errors == null
               ? []
               : List<dynamic>.from(errors!.map((x) => x.toJson())),
-      "data": data != null ? toJsonT(data!) : null,
+      "data": data != null ? toJsonT(data as T) : null,
       "message": message,
       "success": success,
     };

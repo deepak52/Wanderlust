@@ -53,6 +53,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// Top-level background notification response handler
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse notificationResponse) {
+  // Handle background notification tap
+}
+
 /// Shared function to mark message as delivered in Firestore
 /// Used by both foreground and background handlers
 Future<void> _markMessageAsDelivered(String chatId, String messageId) async {
@@ -89,7 +95,7 @@ class FirebaseMessagingService {
     // Initialize FlutterLocalNotificationsPlugin
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings(
-          '@drawable/ic_launcher',
+          '@mipmap/ic_launcher',
         ); // Replace with your icon name
     // const IOSInitializationSettings initializationSettingsIOS =
     //     IOSInitializationSettings();
@@ -117,8 +123,7 @@ class FirebaseMessagingService {
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         // Handle notification tap if needed
       },
-      onDidReceiveBackgroundNotificationResponse:
-          (NotificationResponse response) async {},
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
     // Request notification permissions

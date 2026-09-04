@@ -62,6 +62,10 @@ class $AssetsImagesGen {
   AssetGenImage get wanderlust =>
       const AssetGenImage('assets/images/wanderlust.jpeg');
 
+  /// File path: assets/images/wanderlustlogoUp.png
+  AssetGenImage get wanderlustlogoUp =>
+      const AssetGenImage('assets/images/wanderlustlogoUp.png');
+
   /// List of all assets
   List<AssetGenImage> get values => [
     loginBg,
@@ -70,6 +74,7 @@ class $AssetsImagesGen {
     splashBg1,
     splashBg4,
     wanderlust,
+    wanderlustlogoUp,
   ];
 }
 

@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../helper/core/base/app_base_service.dart';
+import '../model/adventure_state_model.dart';
 import '../model/chat_model.dart';
 
 /// Chat Foundation Service - Centralizes all Firestore access for chat functionality
@@ -269,6 +270,19 @@ class ChatService extends AppBaseService {
     }
 
     await messageRef.update({'Text': newText.trim(), 'Edited': true});
+
+    // Sync room LastMessage if this was the latest message
+    try {
+      final chatDoc = await _chatsCollection.doc(chatId).get();
+      if (chatDoc.exists) {
+        final chatData = chatDoc.data() as Map<String, dynamic>?;
+        final lastMsgTime = chatData?['LastMessageTime'] as Timestamp?;
+        final msgTimestamp = messageData['Timestamp'] as Timestamp?;
+        if (lastMsgTime != null && msgTimestamp != null && lastMsgTime == msgTimestamp) {
+          await _chatsCollection.doc(chatId).update({'LastMessage': newText.trim()});
+        }
+      }
+    } catch (_) {}
   }
 
   /// Soft deletes a message (marks as deleted)
@@ -295,6 +309,19 @@ class ChatService extends AppBaseService {
       'Deleted': true,
       'Text': 'This message was deleted',
     });
+
+    // Sync room LastMessage if this was the latest message
+    try {
+      final chatDoc = await _chatsCollection.doc(chatId).get();
+      if (chatDoc.exists) {
+        final chatData = chatDoc.data() as Map<String, dynamic>?;
+        final lastMsgTime = chatData?['LastMessageTime'] as Timestamp?;
+        final msgTimestamp = messageData['Timestamp'] as Timestamp?;
+        if (lastMsgTime != null && msgTimestamp != null && lastMsgTime == msgTimestamp) {
+          await _chatsCollection.doc(chatId).update({'LastMessage': 'This message was deleted'});
+        }
+      }
+    } catch (_) {}
   }
 
   // ==================== DELIVERY & READ RECEIPTS ====================
@@ -492,5 +519,136 @@ class ChatService extends AppBaseService {
     });
 
     await batch.commit();
+  }
+
+  // ==================== ADVENTURE EXPERIENCE HANDOFF ====================
+
+  /// Sends a companion/admin message with explicit senderId and receiverId
+  Future<String> sendCompanionMessage({
+    required String chatId,
+    required String companionSenderId,
+    required String recipientUserId,
+    required String text,
+  }) async {
+    final messageId = _firestore.collection('temp').doc().id;
+    final now = DateTime.now();
+
+    final message = ChatMessage(
+      messageId: messageId,
+      chatId: chatId,
+      senderId: companionSenderId,
+      receiverId: recipientUserId,
+      text: text.trim(),
+      timestamp: now,
+      delivered: true,
+      seen: false,
+      deleted: false,
+      notified: false,
+      edited: false,
+    );
+
+    final batch = _firestore.batch();
+    final messageRef =
+        _chatsCollection.doc(chatId).collection('messages').doc(messageId);
+    batch.set(messageRef, message.toJson());
+
+    final chatRef = _chatsCollection.doc(chatId);
+    batch.update(chatRef, {
+      'LastMessage': text.trim(),
+      'LastMessageTime': Timestamp.fromDate(now),
+      'LastMessageSenderId': companionSenderId,
+      'UpdatedAt': Timestamp.fromDate(now),
+    });
+
+    await batch.commit();
+    return messageId;
+  }
+
+  /// Prepares the chat room for Adventure Experience handoff
+  /// Finds the admin companion, ensures chat room exists, records responses,
+  /// and posts an idempotent opening message authored by the companion.
+  Future<String> prepareAdventureChatRoom({
+    required String invitationResponse,
+    required Map<String, String> adventureChoices,
+    List<MapLandmarkNode>? mapNodes,
+    List<MapRouteSegment>? mapSegments,
+  }) async {
+    if (!isAuthenticated) throw Exception('User not authenticated');
+    final user = _auth.currentUser!;
+
+    // 1. Fetch admin user dynamically
+    final adminQuery = await _usersCollection
+        .where('isAdmin', isEqualTo: true)
+        .limit(1)
+        .get();
+
+    if (adminQuery.docs.isEmpty) {
+      throw Exception('Admin companion not found');
+    }
+
+    final adminId = adminQuery.docs.first.id;
+    final chatId = await getOrCreateChatRoom(adminId);
+
+    // 2. Save adventure responses in Firestore responses collection
+    try {
+      await _firestore.collection('responses').doc(user.uid).set({
+        'answers': [
+          'Adventure Decision: $invitationResponse',
+          'First Impressions: ${adventureChoices['q1'] ?? ''}, ${adventureChoices['q2'] ?? ''}, ${adventureChoices['q3'] ?? ''}',
+          'The Trail: ${adventureChoices['chapter2_q1'] ?? ''}, ${adventureChoices['chapter2_q2'] ?? ''}, ${adventureChoices['chapter2_q3'] ?? ''}',
+          'Shared Moments: ${adventureChoices['chapter3_q1'] ?? ''}, ${adventureChoices['chapter3_q2'] ?? ''}, ${adventureChoices['chapter3_q3'] ?? ''}',
+        ],
+        'adventureCompleted': true,
+        'adventureChoices': adventureChoices,
+        'invitationResponse': invitationResponse,
+        'adventureMap': {
+          'nodes': mapNodes?.map((n) => n.toJson()).toList() ?? [],
+          'segments': mapSegments?.map((s) => s.toJson()).toList() ?? [],
+          'version': 1,
+        },
+        'userId': user.uid,
+        'email': user.email,
+        'timestamp': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      developer.log('Notice saving adventure responses: $e');
+    }
+
+    // 3. Post natural user message and companion reply
+    try {
+      final isYes = invitationResponse == "YES, LET'S GO";
+      final userMessageText = isYes ? "I said yes." : "Okay... tell me more.";
+      final companionReplyText = isYes
+          ? "Then let's find somewhere special. 🌿\nWhere should we start?"
+          : "Of course.\nAsk me anything. The adventure hasn't started yet.";
+
+      // Check if user opening message already exists
+      final existingUserMsg = await _chatsCollection
+          .doc(chatId)
+          .collection('messages')
+          .where('SenderId', isEqualTo: user.uid)
+          .where('Text', isEqualTo: userMessageText)
+          .limit(1)
+          .get();
+
+      if (existingUserMsg.docs.isEmpty) {
+        await sendMessage(
+          chatId: chatId,
+          text: userMessageText,
+        );
+
+        // Companion response shortly after
+        await sendCompanionMessage(
+          chatId: chatId,
+          companionSenderId: adminId,
+          recipientUserId: user.uid,
+          text: companionReplyText,
+        );
+      }
+    } catch (e) {
+      developer.log('Notice sending opening messages: $e');
+    }
+
+    return chatId;
   }
 }

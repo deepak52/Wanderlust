@@ -204,10 +204,6 @@ class AuthService extends AppBaseService {
 
       if (!userDoc.exists) return null;
 
-      final userData = userDoc.data() ?? {};
-      final isAdmin = userData['isAdmin'] ?? false;
-      final email = userData['email'] ?? user.email ?? '';
-
       return LoginResponse(
         data: 'User retrieved successfully', // Basic success message
       );
@@ -274,11 +270,11 @@ class AuthService extends AppBaseService {
   Future<bool> shouldRememberMe() async {
     try {
       final rememberMe =
-          myApplication.preferenceHelper!.getBool(rememberMeKey) ?? false;
+          myApplication.preferenceHelper!.getBool(rememberMeKey);
       final hasToken =
-          myApplication.preferenceHelper!.getString(accessTokenKey) != null;
+          myApplication.preferenceHelper!.getString(accessTokenKey).isNotEmpty;
       final hasUserId =
-          myApplication.preferenceHelper!.getString(userIdKey) != null;
+          myApplication.preferenceHelper!.getString(userIdKey).isNotEmpty;
 
       return rememberMe && hasToken && hasUserId;
     } catch (e) {
@@ -292,12 +288,8 @@ class AuthService extends AppBaseService {
       final shouldRemember = await shouldRememberMe();
       if (!shouldRemember) return null;
 
-      final userId = myApplication.preferenceHelper!.getString(userIdKey);
       final email = myApplication.preferenceHelper!.getString(emailKey);
-      final isAdmin =
-          myApplication.preferenceHelper!.getBool(isAdminKey) ?? false;
-
-      if (email == null) return null;
+      if (email.isEmpty) return null;
 
       // Verify token is still valid by getting current user
       final currentUser = await getCurrentUser();
@@ -333,7 +325,6 @@ class AuthService extends AppBaseService {
 
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data() ?? {};
-      final isAdminUser = userData['isAdmin'] ?? false;
 
       return UserLoginResponse(
         userId: int.tryParse(user.uid.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0,
@@ -410,33 +401,6 @@ class AuthService extends AppBaseService {
       return otpCode.length == 6 && int.tryParse(otpCode) != null;
     } catch (e) {
       return false;
-    }
-  }
-
-  // Private helper to get or create user document and return its data
-  Future<Map<String, dynamic>> _getOrCreateUserDocument(
-    String userId,
-    String email,
-  ) async {
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      // Create user document if it doesn't exist
-      await _firestore.collection('users').doc(userId).set({
-        'email': email,
-        'createdAt': FieldValue.serverTimestamp(),
-        'isAdmin': false,
-        'lastLogin': FieldValue.serverTimestamp(),
-      });
-
-      return {'email': email, 'isAdmin': false};
-    } else {
-      // Update last login and return existing data
-      await _firestore.collection('users').doc(userId).update({
-        'lastLogin': FieldValue.serverTimestamp(),
-      });
-
-      return userDoc.data() ?? {};
     }
   }
 

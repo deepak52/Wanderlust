@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
-
-import '../../helper/widget/text/app_text.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../helper/core/theme/color_helper.dart';
 
-/// Reusable message input field widget for chat screens.
-/// Adapts Wanderlust MessageInputField to Agro-Prod theme and shared widget patterns.
-/// Uses native TextField with Agro-Prod text styles for consistency.
+/// Reusable Wanderlust-themed message input field widget for chat screens.
 class MessageInputField extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
   final String? hintText;
   final bool enabled;
+  final bool isEditing;
 
   const MessageInputField({
     super.key,
@@ -18,90 +16,152 @@ class MessageInputField extends StatelessWidget {
     required this.onSend,
     this.hintText = 'Type a message...',
     this.enabled = true,
+    this.isEditing = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColorHelper.backgroundColor,
+      decoration: const BoxDecoration(
+        color: AppColorHelper.chatSurfaceDark, // #161C1D
         border: Border(
           top: BorderSide(
-            color: AppColorHelper.borderColor.withValues(alpha: 0.3),
-            width: 1,
+            color: AppColorHelper.chatDivider, // #2E3739
+            width: 1.0,
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSend(),
-              maxLines: 5,
-              minLines: 1,
-              enabled: enabled,
-              style: textStyle(
-                15,
-                AppColorHelper.primaryTextColor,
-                FontWeight.w500,
-                height: 1.4,
-              ),
-              decoration: InputDecoration(
-                hintText: hintText,
-                hintStyle: textStyle(
-                  15,
-                  AppColorHelper.hintTextColor,
-                  FontWeight.w500,
-                ),
-                filled: true,
-                fillColor: AppColorHelper.cardColor,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                  horizontal: 12,
-                ),
-                border: OutlineInputBorder(
+      child: SafeArea(
+        top: false,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                decoration: BoxDecoration(
+                  color: AppColorHelper.chatSurface, // #202628
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(
-                    color: AppColorHelper.primaryColor,
-                    width: 1.5,
+                  border: Border.all(
+                    color: isEditing
+                        ? AppColorHelper.warmGold
+                        : AppColorHelper.chatDivider, // #2E3739
+                    width: isEditing ? 1.4 : 1.0,
                   ),
                 ),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Attachment Icon
+                    IconButton(
+                      icon: const Icon(
+                        Icons.attach_file_rounded,
+                        color: AppColorHelper.chatTextSecondary,
+                        size: 21,
+                      ),
+                      onPressed: enabled ? () {} : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      splashRadius: 18,
+                      tooltip: 'Attach',
+                    ),
+                    const SizedBox(width: 4),
+
+                    // Text Field
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => onSend(),
+                        maxLines: 5,
+                        minLines: 1,
+                        enabled: enabled,
+                        cursorColor: isEditing
+                            ? AppColorHelper.warmGold
+                            : AppColorHelper.chatPrimaryTeal,
+                        style: GoogleFonts.inter(
+                          textStyle: const TextStyle(
+                            fontSize: 14.5,
+                            color: AppColorHelper.chatTextPrimary,
+                            fontWeight: FontWeight.w400,
+                            height: 1.35,
+                          ),
+                        ),
+                        decoration: InputDecoration(
+                          hintText: hintText,
+                          hintStyle: GoogleFonts.inter(
+                            textStyle: const TextStyle(
+                              fontSize: 14,
+                              color: AppColorHelper.chatTextSecondary,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+
+                    // Emoji Icon
+                    IconButton(
+                      icon: const Icon(
+                        Icons.sentiment_satisfied_alt_rounded,
+                        color: AppColorHelper.chatTextSecondary,
+                        size: 21,
+                      ),
+                      onPressed: enabled ? () {} : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      splashRadius: 18,
+                      tooltip: 'Emoji',
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          // Send button using Agro-Prod buttonContainer pattern
-          GestureDetector(
-            onTap: enabled ? onSend : null,
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color:
-                    enabled
-                        ? AppColorHelper.primaryColor
-                        : AppColorHelper.primaryColor.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(21),
-              ),
-              child: Icon(
-                Icons.send_rounded,
-                color: AppColorHelper.whiteTextColor,
-                size: 20,
+            const SizedBox(width: 8),
+
+            // Send / Confirm Edit Button
+            GestureDetector(
+              onTap: enabled ? onSend : null,
+              child: Container(
+                width: 44,
+                height: 44,
+                margin: const EdgeInsets.only(bottom: 2),
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? (isEditing
+                          ? AppColorHelper.warmGold
+                          : AppColorHelper.chatPrimaryTeal) // #0C6B63
+                      : (isEditing
+                          ? AppColorHelper.warmGold.withValues(alpha: 0.4)
+                          : AppColorHelper.chatPrimaryTeal.withValues(alpha: 0.4)),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: isEditing
+                          ? AppColorHelper.warmGold.withValues(alpha: 0.3)
+                          : AppColorHelper.chatPrimaryTeal.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isEditing ? Icons.check_rounded : Icons.send_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -6,9 +6,11 @@ import '../binding/welcome_binding.dart';
 import '../binding/tour_date_question_binding.dart';
 import '../binding/chat_binding.dart';
 import '../binding/responses_binding.dart';
+import '../binding/response_detail_binding.dart';
 import '../binding/user_list_binding.dart';
 import '../binding/lock_binding.dart';
 import '../binding/admin_home_binding.dart';
+import '../binding/adventure_binding.dart';
 import '../view/splash/splash_screen.dart';
 import '../view/login/login_screen.dart';
 import '../view/register/register_screen.dart';
@@ -17,8 +19,10 @@ import '../view/tour_date_question/tour_date_question_screen.dart';
 import '../view/admin/admin_home_screen.dart';
 import '../view/chat/chat_screen.dart';
 import '../view/responses/responses_screen.dart';
+import '../view/responses/response_detail_screen.dart';
 import '../view/user_list/user_list_screen.dart';
 import '../view/lock/lock_screen.dart';
+import '../view/adventure/adventure_screen.dart';
 import '../model/lock_model.dart';
 
 // Route name constants - used by controllers for navigation
@@ -30,8 +34,10 @@ const tourDateQuestionPageRoute = '/tour';
 const adminHomePageRoute = '/admin_home';
 const chatPageRoute = '/chat';
 const responsesPageRoute = '/responses';
+const responseDetailPageRoute = '/response-detail';
 const userListPageRoute = '/user-list';
 const lockPageRoute = '/lock';
+const adventurePageRoute = '/adventure';
 
 class AppRoutes {
   static const splash = splashPageRoute;
@@ -42,8 +48,10 @@ class AppRoutes {
   static const adminHome = adminHomePageRoute;
   static const chat = chatPageRoute;
   static const responses = responsesPageRoute;
+  static const responseDetail = responseDetailPageRoute;
   static const userList = userListPageRoute;
   static const lock = lockPageRoute;
+  static const adventure = adventurePageRoute;
 
   static final pages = [
     GetPage(
@@ -103,6 +111,13 @@ class AppRoutes {
       transitionDuration: const Duration(milliseconds: 500),
     ),
     GetPage(
+      name: responseDetail,
+      page: () => const ResponseDetailScreen(),
+      binding: ResponseDetailBinding(),
+      transition: Transition.fadeIn,
+      transitionDuration: const Duration(milliseconds: 400),
+    ),
+    GetPage(
       name: chat,
       page: () => const ChatScreen(),
       binding: ChatBinding(),
@@ -128,6 +143,13 @@ class AppRoutes {
       binding: LockBinding(),
       transition: Transition.fadeIn,
       transitionDuration: const Duration(milliseconds: 300),
+    ),
+    GetPage(
+      name: adventure,
+      page: () => const AdventureScreen(),
+      binding: AdventureBinding(),
+      transition: Transition.fadeIn,
+      transitionDuration: const Duration(milliseconds: 500),
     ),
   ];
 }

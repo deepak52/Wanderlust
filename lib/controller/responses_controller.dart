@@ -67,18 +67,31 @@ class ResponsesController extends AppBaseController {
   }
 
   void onResponseTap(ResponseModel response) {
-    // Navigate to chat with this user
-    onChatPressed(response.userId);
+    // Navigate to dedicated adventure response detail screen
+    Get.toNamed(
+      responseDetailPageRoute,
+      arguments: response,
+    );
   }
 
   void onChatPressed(String userId) async {
     try {
       showLoader();
       final chatId = await _chatService.getOrCreateChatRoom(userId);
+      final response = responses.firstWhereOrNull((r) => r.userId == userId);
+      final email = response?.email ?? '';
+      final displayName = email.isNotEmpty
+          ? email.split('@').first[0].toUpperCase() + email.split('@').first.substring(1)
+          : '';
       hideLoader();
+
       Get.toNamed(
         chatPageRoute,
-        arguments: {'chatId': chatId, 'isAdmin': true},
+        arguments: {
+          'chatId': chatId,
+          'isAdmin': true,
+          'userName': displayName,
+        },
       );
     } catch (e) {
       hideLoader();

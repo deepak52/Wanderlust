@@ -1,6 +1,4 @@
 import 'package:get/get.dart';
-import '../../app_string.dart';
-import '../../deviceInfo.dart';
 import '../../single_app.dart';
 import '../../http_service.dart';
 import 'app_base_controller.dart';
